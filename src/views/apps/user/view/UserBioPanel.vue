@@ -8,34 +8,44 @@ const props = defineProps({
   },
 })
 
-const isUserInfoEditDialogVisible = ref(false)
+const emit = defineEmits(['edit'])
 
 const resolveDeptVariant = dept => {
-  if (dept === '믿음부')
-    return { color: 'primary' }
-  if (dept === '소망부')
-    return { color: 'info' }
-  if (dept === '사랑부')
-    return { color: 'success' }
-  if (dept === '은혜부')
-    return { color: 'warning' }
-
+  if (dept === '교무팀') return { color: 'primary' }
+  if (dept === '상담팀') return { color: 'info' }
+  if (dept === '초등1반') return { color: 'success' }
+  if (dept === '초등2반') return { color: 'warning' }
+  if (dept === '초등3반') return { color: 'error' }
   return { color: 'secondary' }
+}
+
+const resolveGroupVariant = group => {
+  if (group === '봉사회') return 'primary'
+  if (group === '어머니회') return 'info'
+  if (group === '청년회') return 'success'
+  return 'secondary'
+}
+
+const resolveStatusVariant = status => {
+  if (status === '현직') return 'success'
+  if (status === '휴직') return 'warning'
+  if (status === '퇴직') return 'error'
+  if (status === '전배') return 'info'
+  return 'secondary'
 }
 </script>
 
 <template>
   <VRow>
-    <!-- 성도 정보 카드 -->
     <VCol cols="12">
       <VCard v-if="props.userData">
 
-        <!-- 아바타 + 이름 + 부서 -->
+        <!-- 아바타 + 이름 + 부서 + 직분 -->
         <VCardText class="text-center pt-15">
           <VAvatar
             rounded="sm"
             :size="120"
-            :color="resolveDeptVariant(props.userData.currentDepartment).color"
+            :color="resolveDeptVariant(props.userData.department).color"
             variant="tonal"
           >
             <VImg
@@ -54,17 +64,34 @@ const resolveDeptVariant = dept => {
             {{ props.userData.fullName }}
           </h6>
 
-          <VChip
-            label
-            :color="resolveDeptVariant(props.userData.currentDepartment).color"
-            size="small"
-            class="mt-4"
-          >
-            {{ props.userData.currentDepartment }}
-          </VChip>
+          <div class="d-flex justify-center gap-2 mt-3">
+            <VChip
+              label
+              :color="resolveDeptVariant(props.userData.department).color"
+              size="small"
+            >
+              {{ props.userData.department }}
+            </VChip>
+            <VChip
+              label
+              color="secondary"
+              size="small"
+              variant="outlined"
+            >
+              {{ props.userData.position }}
+            </VChip>
+            <VChip
+              label
+              :color="resolveStatusVariant(props.userData.status)"
+              size="small"
+              variant="tonal"
+            >
+              {{ props.userData.status }}
+            </VChip>
+          </div>
         </VCardText>
 
-        <!-- 나이 / B·S 요약 -->
+        <!-- B/S / 소속 요약 -->
         <VCardText class="d-flex justify-center flex-wrap gap-6 mt-1">
           <div class="d-flex align-center gap-3">
             <VAvatar
@@ -75,14 +102,14 @@ const resolveDeptVariant = dept => {
             >
               <VIcon
                 size="22"
-                icon="mdi-cake-variant-outline"
+                icon="mdi-account-outline"
               />
             </VAvatar>
             <div>
               <h6 class="text-h6">
-                {{ props.userData.age }}세
+                {{ props.userData.bs === 'B' ? '형제' : '자매' }}
               </h6>
-              <span class="text-sm text-medium-emphasis">나이</span>
+              <span class="text-sm text-medium-emphasis">B/S</span>
             </div>
           </div>
 
@@ -90,19 +117,19 @@ const resolveDeptVariant = dept => {
             <VAvatar
               :size="44"
               rounded
-              color="primary"
+              :color="resolveGroupVariant(props.userData.serviceGroup)"
               variant="tonal"
             >
               <VIcon
                 size="22"
-                icon="mdi-water-outline"
+                icon="mdi-account-group-outline"
               />
             </VAvatar>
             <div>
               <h6 class="text-h6">
-                {{ props.userData.bs === 'B' ? '형제 (B)' : props.userData.bs === 'S' ? '자매 (S)' : '-' }}
+                {{ props.userData.serviceGroup }}
               </h6>
-              <span class="text-sm text-medium-emphasis">B/S</span>
+              <span class="text-sm text-medium-emphasis">소속</span>
             </div>
           </div>
         </VCardText>
@@ -110,99 +137,66 @@ const resolveDeptVariant = dept => {
         <!-- 상세 정보 -->
         <VCardText>
           <h6 class="text-h6">
-            성도 정보
+            교사 정보
           </h6>
           <VDivider class="mt-4 mb-2" />
 
           <VList class="card-list">
-            <!-- 연락처 -->
             <VListItem>
               <VListItemTitle>
                 <span class="text-sm font-weight-medium">연락처: </span>
-                <span class="text-body-2">{{ props.userData.contact }}</span>
+                <a
+                  :href="`tel:${props.userData.contact}`"
+                  class="text-body-2"
+                >{{ props.userData.contact }}</a>
               </VListItemTitle>
             </VListItem>
 
-            <!-- 생년월일 -->
             <VListItem>
               <VListItemTitle>
-                <span class="text-sm font-weight-medium">생년월일: </span>
-                <span class="text-body-2">{{ props.userData.birthDate }}</span>
+                <span class="text-sm font-weight-medium">직분: </span>
+                <span class="text-body-2">{{ props.userData.position }}</span>
               </VListItemTitle>
             </VListItem>
 
-            <!-- 교구 -->
+            <VListItem v-if="props.userData.assignedClass">
+              <VListItemTitle>
+                <span class="text-sm font-weight-medium">담당: </span>
+                <span class="text-body-2">{{ props.userData.assignedClass }}</span>
+              </VListItemTitle>
+            </VListItem>
+
+            <VListItem v-if="props.userData.extraRole">
+              <VListItemTitle>
+                <span class="text-sm font-weight-medium">부가역할: </span>
+                <span class="text-body-2">{{ props.userData.extraRole }}</span>
+              </VListItemTitle>
+            </VListItem>
+
+            <VListItem v-if="props.userData.occupation">
+              <VListItemTitle>
+                <span class="text-sm font-weight-medium">직업: </span>
+                <span class="text-body-2">{{ props.userData.occupation }}</span>
+              </VListItemTitle>
+            </VListItem>
+
             <VListItem>
               <VListItemTitle>
-                <span class="text-sm font-weight-medium">교구: </span>
-                <span class="text-body-2">{{ props.userData.parish }}</span>
+                <span class="text-sm font-weight-medium">구원생일: </span>
+                <span class="text-body-2">{{ props.userData.salvationBirthday || '-' }}</span>
               </VListItemTitle>
             </VListItem>
-
-            <!-- 직장인/학생 + 직장·학교명 -->
-            <VListItem>
-              <VListItemTitle>
-                <span class="text-sm font-weight-medium">{{ props.userData.occupation }}: </span>
-                <span class="text-body-2">{{ props.userData.workplaceName || '-' }}</span>
-              </VListItemTitle>
-            </VListItem>
-
-            <!-- 봉사부서 -->
-            <VListItem>
-              <VListItemTitle>
-                <span class="text-sm font-weight-medium">봉사부서: </span>
-                <span class="text-body-2">{{ props.userData.serviceTeam || '-' }}</span>
-              </VListItemTitle>
-            </VListItem>
-
-            <!-- 대학부팀 -->
-            <VListItem v-if="props.userData.collegeTeam">
-              <VListItemTitle>
-                <span class="text-sm font-weight-medium">대학부팀: </span>
-                <span class="text-body-2">{{ props.userData.collegeTeam }}</span>
-              </VListItemTitle>
-            </VListItem>
-
-            <!-- 구원일 -->
-            <VListItem>
-              <VListItemTitle>
-                <span class="text-sm font-weight-medium">구원일: </span>
-                <span class="text-body-2">{{ props.userData.salvationDate || '-' }}</span>
-              </VListItemTitle>
-            </VListItem>
-
-            <!-- 수원교회 전입일 -->
-            <VListItem>
-              <VListItemTitle>
-                <span class="text-sm font-weight-medium">수원교회 전입일: </span>
-                <span class="text-body-2">{{ props.userData.transferInDate }}</span>
-              </VListItemTitle>
-            </VListItem>
-
-            <!-- 주소 -->
-            <VListItem>
-              <VListItemTitle>
-                <span class="text-sm font-weight-medium">주소: </span>
-                <span class="text-body-2">{{ props.userData.address || '-' }}</span>
-              </VListItemTitle>
-            </VListItem>
-
           </VList>
         </VCardText>
 
-        <!-- 수정 / 정지 버튼 -->
+        <!-- 수정 버튼 -->
         <VCardText class="d-flex justify-center gap-3">
           <VBtn
             variant="elevated"
-            @click="isUserInfoEditDialogVisible = true"
+            prepend-icon="mdi-pencil-outline"
+            @click="emit('edit')"
           >
             수정
-          </VBtn>
-          <VBtn
-            variant="tonal"
-            color="error"
-          >
-            정지
           </VBtn>
         </VCardText>
       </VCard>

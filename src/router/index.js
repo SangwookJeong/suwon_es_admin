@@ -11,15 +11,8 @@ const router = createRouter({
     // NOTE: Role is just for UI purposes. ACL is based on abilities.
     {
       path: '/',
-      redirect: to => {
-        const userData = JSON.parse(localStorage.getItem('userData') || '{}')
-        const userRole = userData && userData.role ? userData.role : null
-        if (userRole === 'admin')
-          return { name: 'dashboards-crm' }
-        if (userRole === 'client')
-          return { name: 'access-control' }
-        
-        return { name: 'login', query: to.query }
+      redirect: () => {
+        return { name: 'apps-user-list' }
       },
     },
     {

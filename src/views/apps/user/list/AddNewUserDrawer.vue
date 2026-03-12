@@ -36,29 +36,25 @@ const onFileChange = e => {
 }
 
 const fullName = ref('')
+const department = ref()
+const position = ref('')
+const assignedClass = ref('')
+const extraRole = ref('')
 const contact = ref('')
-const birthDate = ref('')
-const currentDepartment = ref()
-const parish = ref()
+const serviceGroup = ref()
 const bs = ref()
-const salvationDate = ref('')
-const transferInDate = ref('')
-const serviceTeam = ref()
-const collegeTeam = ref()
 const occupation = ref()
-const workplaceName = ref('')
-const address = ref('')
-const remarks = ref('')
+const salvationBirthday = ref('')
+const status = ref('현직')
 
-const departments = ['믿음부', '소망부', '사랑부', '은혜부']
-const parishes = ['1교구', '2교구', '3교구', '4교구']
+const departments = ['교무팀', '상담팀', '초등1반', '초등2반', '초등3반']
+const serviceGroups = ['봉사회', '어머니회', '청년회']
 const bsOptions = [
   { title: '형제 (B)', value: 'B' },
   { title: '자매 (S)', value: 'S' },
 ]
-const serviceTeams = ['찬양팀', '봉사팀', '예배팀', '전도팀', '행정팀']
-const collegeTeams = ['A팀', 'B팀', 'C팀', 'D팀']
-const occupations = ['학생', '직장인']
+const occupations = ['직장인', '대학생', '주부']
+const statuses = ['현직', '휴직', '퇴직', '전배']
 
 // 👉 드로어 닫기
 const closeNavigationDrawer = () => {
@@ -74,33 +70,21 @@ const closeNavigationDrawer = () => {
 const onSubmit = () => {
   refForm.value?.validate().then(({ valid }) => {
     if (valid) {
-      const currentYear = new Date().getFullYear()
-      const birthYear = birthDate.value ? new Date(birthDate.value).getFullYear() : currentYear
-      const koreanAge = currentYear - birthYear + 1
-
       emit('userData', {
         id: 0,
         avatar: avatarPreview.value,
         fullName: fullName.value,
+        department: department.value,
+        position: position.value,
+        assignedClass: assignedClass.value,
+        extraRole: extraRole.value,
         contact: contact.value,
-        birthDate: birthDate.value,
-        age: koreanAge,
-        currentDepartment: currentDepartment.value,
-        departmentHistory: [{ year: currentYear, department: currentDepartment.value }],
-        parish: parish.value,
+        serviceGroup: serviceGroup.value,
         bs: bs.value ?? '',
-        salvationDate: salvationDate.value,
-        transferInDate: transferInDate.value,
-        serviceTeam: serviceTeam.value ?? '',
-        collegeTeam: collegeTeam.value ?? '',
-        occupation: occupation.value,
-        workplaceName: workplaceName.value,
-        address: address.value,
-        remarks: remarks.value,
-        email: '',
-        username: '',
-        role: 'officer',
-        status: 'active',
+        occupation: occupation.value ?? '',
+        salvationBirthday: salvationBirthday.value,
+        status: status.value,
+        serviceHistory: [],
       })
       emit('update:isDrawerOpen', false)
       nextTick(() => {
@@ -129,7 +113,7 @@ const handleDrawerModelValueUpdate = val => {
     <!-- 👉 제목 -->
     <div class="d-flex align-center bg-var-theme-background px-5 py-2">
       <h6 class="text-h6">
-        성도 추가
+        교사 추가
       </h6>
 
       <VSpacer />
@@ -199,6 +183,47 @@ const handleDrawerModelValueUpdate = val => {
                 />
               </VCol>
 
+              <!-- 부서 -->
+              <VCol cols="12">
+                <VSelect
+                  v-model="department"
+                  label="부서"
+                  :rules="[requiredValidator]"
+                  :items="departments"
+                />
+              </VCol>
+
+              <!-- 직분 -->
+              <VCol cols="12">
+                <VTextField
+                  v-model="position"
+                  :rules="[requiredValidator]"
+                  label="직분"
+                  placeholder="반장, 분반교사, 상담인 등"
+                />
+              </VCol>
+
+              <!-- 담당 (초등반만) -->
+              <VCol
+                v-if="['초등1반', '초등2반', '초등3반'].includes(department)"
+                cols="12"
+              >
+                <VTextField
+                  v-model="assignedClass"
+                  label="담당"
+                  placeholder="1-1반, 특수 (남) 등"
+                />
+              </VCol>
+
+              <!-- 부가역할 -->
+              <VCol cols="12">
+                <VTextField
+                  v-model="extraRole"
+                  label="부가역할"
+                  placeholder="피아노, 손유희팀장 등"
+                />
+              </VCol>
+
               <!-- 연락처 -->
               <VCol cols="12">
                 <VTextField
@@ -209,92 +234,13 @@ const handleDrawerModelValueUpdate = val => {
                 />
               </VCol>
 
-              <!-- 생년월일 -->
-              <VCol cols="12">
-                <VTextField
-                  v-model="birthDate"
-                  :rules="[requiredValidator]"
-                  label="생년월일"
-                  placeholder="YYYY-MM-DD"
-                />
-              </VCol>
-
-              <!-- 구원일 -->
-              <VCol cols="12">
-                <VTextField
-                  v-model="salvationDate"
-                  label="구원일"
-                  placeholder="YYYY-MM-DD"
-                />
-              </VCol>
-
-              <!-- 수원교회 전입일 -->
-              <VCol cols="12">
-                <VTextField
-                  v-model="transferInDate"
-                  :rules="[requiredValidator]"
-                  label="수원교회 전입일"
-                  placeholder="YYYY-MM-DD"
-                />
-              </VCol>
-
-              <!-- 부서 -->
+              <!-- 소속 -->
               <VCol cols="12">
                 <VSelect
-                  v-model="currentDepartment"
-                  label="부서"
+                  v-model="serviceGroup"
+                  label="소속"
                   :rules="[requiredValidator]"
-                  :items="departments"
-                />
-              </VCol>
-
-              <!-- 교구 -->
-              <VCol cols="12">
-                <VSelect
-                  v-model="parish"
-                  label="교구"
-                  :rules="[requiredValidator]"
-                  :items="parishes"
-                />
-              </VCol>
-
-              <!-- 직장인/학생 -->
-              <VCol cols="12">
-                <VSelect
-                  v-model="occupation"
-                  label="직장인/학생"
-                  :rules="[requiredValidator]"
-                  :items="occupations"
-                />
-              </VCol>
-
-              <!-- 직장/학교명 -->
-              <VCol cols="12">
-                <VTextField
-                  v-model="workplaceName"
-                  label="직장/학교명"
-                />
-              </VCol>
-
-              <!-- 봉사부서 -->
-              <VCol cols="12">
-                <VSelect
-                  v-model="serviceTeam"
-                  label="봉사부서"
-                  :items="serviceTeams"
-                  clearable
-                  clear-icon="mdi-close"
-                />
-              </VCol>
-
-              <!-- 대학부팀 -->
-              <VCol cols="12">
-                <VSelect
-                  v-model="collegeTeam"
-                  label="대학부팀"
-                  :items="collegeTeams"
-                  clearable
-                  clear-icon="mdi-close"
+                  :items="serviceGroups"
                 />
               </VCol>
 
@@ -303,26 +249,37 @@ const handleDrawerModelValueUpdate = val => {
                 <VSelect
                   v-model="bs"
                   label="B/S (형제/자매)"
+                  :rules="[requiredValidator]"
                   :items="bsOptions"
+                />
+              </VCol>
+
+              <!-- 직업 -->
+              <VCol cols="12">
+                <VSelect
+                  v-model="occupation"
+                  label="직업"
+                  :items="occupations"
                   clearable
                   clear-icon="mdi-close"
                 />
               </VCol>
 
-              <!-- 주소 -->
+              <!-- 상태 -->
               <VCol cols="12">
-                <VTextField
-                  v-model="address"
-                  label="주소"
+                <VSelect
+                  v-model="status"
+                  label="상태"
+                  :items="statuses"
                 />
               </VCol>
 
-              <!-- 인적사항(비고) -->
+              <!-- 구원생일 -->
               <VCol cols="12">
-                <VTextarea
-                  v-model="remarks"
-                  label="인적사항(비고)"
-                  rows="3"
+                <VTextField
+                  v-model="salvationBirthday"
+                  label="구원생일"
+                  placeholder="YY.MM.DD"
                 />
               </VCol>
 

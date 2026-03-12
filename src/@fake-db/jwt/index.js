@@ -25,12 +25,13 @@ const userTokens = [
 const database = [
   {
     id: 1,
-    fullName: 'John Doe',
-    username: 'johndoe',
+    fullName: '이승진',
+    username: 'seungjin',
     password: 'admin',
     avatar: avatar1,
     email: 'admin@demo.com',
     role: 'admin',
+    teacherId: 1,
     abilities: [
       {
         action: 'manage',
@@ -40,12 +41,13 @@ const database = [
   },
   {
     id: 2,
-    fullName: 'Jane Doe',
-    username: 'janedoe',
+    fullName: '정상욱',
+    username: 'sangouk',
     password: 'client',
     avatar: avatar2,
     email: 'client@demo.com',
     role: 'client',
+    teacherId: 7,
     abilities: [
       {
         action: 'read',

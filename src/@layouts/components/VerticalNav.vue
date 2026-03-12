@@ -95,15 +95,6 @@ const handleNavScroll = evt => {
           class="app-logo d-flex align-center gap-x-3 app-title-wrapper"
         >
           <VNodeRenderer :nodes="config.app.logo" />
-
-          <Transition name="vertical-nav-app-title">
-            <h1
-              v-show="!hideTitleAndIcon"
-              class="font-weight-medium leading-normal text-xl text-uppercase"
-            >
-              {{ config.app.title }}
-            </h1>
-          </Transition>
         </RouterLink>
         <!-- 👉 Vertical nav actions -->
         <!-- Show toggle collapsible in >md and close button in <md -->

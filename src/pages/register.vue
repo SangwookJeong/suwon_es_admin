@@ -80,10 +80,6 @@ const onSubmit = () => {
     <!-- Title and Logo -->
     <div class="auth-logo d-flex align-start gap-x-3">
       <VNodeRenderer :nodes="themeConfig.app.logo" />
-
-      <h1 class="font-weight-medium leading-normal text-2xl text-uppercase">
-        {{ themeConfig.app.title }}
-      </h1>
     </div>
 
     <VRow

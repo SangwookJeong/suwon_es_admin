@@ -26,11 +26,11 @@ export default [
     ],
   },
   {
-    title: '성도관리',
-    icon: { icon: 'mdi-account-outline' },
+    title: '교사관리',
+    icon: { icon: 'mdi-account-group-outline' },
     children: [
-      { title: '성도목록', to: 'apps-user-list' },
-      { title: '성도상세', to: { name: 'apps-user-view-id', params: { id: 21 } } },
+      { title: '교사목록', to: 'apps-user-list' },
+      { title: '교사출석', to: 'apps-user-attendance' },
     ],
   },
   {

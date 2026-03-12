@@ -40,7 +40,7 @@ const setPrimaryColor = color => {
   localStorage.setItem(`${ themeConfig.app.title }-initial-loader-color`, color)
 }
 
-const getBoxColor = (color, index) => index ? color : '#9155FD'
+const getBoxColor = (color, index) => index ? color : '#003678'
 const { width: windowWidth } = useWindowSize()
 
 const headerValues = computed(() => {
