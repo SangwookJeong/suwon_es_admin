@@ -90,25 +90,38 @@ const onSaveEdit = () => {
         md="7"
         lg="8"
       >
-        <VTabs
+        <VBtnToggle
           v-model="activeTab"
-          class="mb-6"
+          mandatory
+          color="primary"
+          density="comfortable"
+          variant="outlined"
+          rounded="lg"
+          class="mb-4"
         >
-          <VTab value="overview">
+          <VBtn
+            value="overview"
+            size="small"
+          >
             <VIcon
               icon="mdi-account-details-outline"
-              class="me-2"
+              class="me-1"
+              size="18"
             />
             상세정보
-          </VTab>
-          <VTab value="history">
+          </VBtn>
+          <VBtn
+            value="history"
+            size="small"
+          >
             <VIcon
               icon="mdi-history"
-              class="me-2"
+              class="me-1"
+              size="18"
             />
             연도별 봉사현황
-          </VTab>
-        </VTabs>
+          </VBtn>
+        </VBtnToggle>
 
         <VWindow v-model="activeTab">
           <VWindowItem value="overview">

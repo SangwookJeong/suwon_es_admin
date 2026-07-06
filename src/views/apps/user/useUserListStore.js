@@ -44,5 +44,30 @@ export const useUserListStore = defineStore('UserListStore', {
           .catch(error => reject(error))
       })
     },
+
+    // 👉 Fetch attendance
+    fetchAttendance(params) {
+      return axios.get('/apps/attendance', { params })
+    },
+
+    // 👉 Save attendance
+    saveAttendance(data) {
+      return axios.post('/apps/attendance', data)
+    },
+
+    // 👉 Fetch monthly dept stats
+    fetchMonthlyDeptStats(params) {
+      return axios.get('/apps/attendance/monthly-stats', { params })
+    },
+
+    // 👉 Fetch user attendance stats
+    fetchUserAttendanceStats(userId) {
+      return axios.get('/apps/attendance/user-stats', { params: { userId } })
+    },
+
+    // 👉 Fetch user yearly attendance stats
+    fetchUserYearlyStats(userId) {
+      return axios.get('/apps/attendance/user-yearly-stats', { params: { userId } })
+    },
   },
 })

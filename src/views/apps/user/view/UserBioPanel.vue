@@ -19,13 +19,6 @@ const resolveDeptVariant = dept => {
   return { color: 'secondary' }
 }
 
-const resolveGroupVariant = group => {
-  if (group === '봉사회') return 'primary'
-  if (group === '어머니회') return 'info'
-  if (group === '청년회') return 'success'
-  return 'secondary'
-}
-
 const resolveStatusVariant = status => {
   if (status === '현직') return 'success'
   if (status === '휴직') return 'warning'
@@ -40,7 +33,7 @@ const resolveStatusVariant = status => {
     <VCol cols="12">
       <VCard v-if="props.userData">
 
-        <!-- 아바타 + 이름 + 부서 + 직분 -->
+        <!-- 아바타 + 이름 -->
         <VCardText class="text-center pt-15">
           <VAvatar
             rounded="sm"
@@ -63,130 +56,143 @@ const resolveStatusVariant = status => {
           <h6 class="text-h6 mt-4">
             {{ props.userData.fullName }}
           </h6>
-
-          <div class="d-flex justify-center gap-2 mt-3">
-            <VChip
-              label
-              :color="resolveDeptVariant(props.userData.department).color"
-              size="small"
-            >
-              {{ props.userData.department }}
-            </VChip>
-            <VChip
-              label
-              color="secondary"
-              size="small"
-              variant="outlined"
-            >
-              {{ props.userData.position }}
-            </VChip>
-            <VChip
-              label
-              :color="resolveStatusVariant(props.userData.status)"
-              size="small"
-              variant="tonal"
-            >
-              {{ props.userData.status }}
-            </VChip>
-          </div>
         </VCardText>
 
-        <!-- B/S / 소속 요약 -->
-        <VCardText class="d-flex justify-center flex-wrap gap-6 mt-1">
-          <div class="d-flex align-center gap-3">
-            <VAvatar
-              :size="44"
-              rounded
-              color="primary"
-              variant="tonal"
-            >
-              <VIcon
-                size="22"
-                icon="mdi-account-outline"
-              />
-            </VAvatar>
-            <div>
-              <h6 class="text-h6">
-                {{ props.userData.bs === 'B' ? '형제' : '자매' }}
-              </h6>
-              <span class="text-sm text-medium-emphasis">B/S</span>
-            </div>
-          </div>
-
-          <div class="d-flex align-center gap-3">
-            <VAvatar
-              :size="44"
-              rounded
-              :color="resolveGroupVariant(props.userData.serviceGroup)"
-              variant="tonal"
-            >
-              <VIcon
-                size="22"
-                icon="mdi-account-group-outline"
-              />
-            </VAvatar>
-            <div>
-              <h6 class="text-h6">
-                {{ props.userData.serviceGroup }}
-              </h6>
-              <span class="text-sm text-medium-emphasis">소속</span>
-            </div>
-          </div>
-        </VCardText>
-
-        <!-- 상세 정보 -->
+        <!-- 봉사 정보 -->
         <VCardText>
           <h6 class="text-h6">
-            교사 정보
+            봉사 정보
           </h6>
-          <VDivider class="mt-4 mb-2" />
+          <VDivider class="mt-4 mb-4" />
 
-          <VList class="card-list">
-            <VListItem>
-              <VListItemTitle>
-                <span class="text-sm font-weight-medium">연락처: </span>
-                <a
-                  :href="`tel:${props.userData.contact}`"
-                  class="text-body-2"
-                >{{ props.userData.contact }}</a>
-              </VListItemTitle>
-            </VListItem>
+          <VRow>
+            <!-- 부서 -->
+            <VCol
+              cols="12"
+              sm="6"
+            >
+              <div class="d-flex align-center gap-3 mb-2">
+                <VAvatar
+                  rounded
+                  color="primary"
+                  variant="tonal"
+                  size="42"
+                >
+                  <VIcon icon="mdi-account-group-outline" />
+                </VAvatar>
+                <div>
+                  <p class="text-xs text-medium-emphasis mb-0">
+                    부서
+                  </p>
+                  <p class="text-sm font-weight-medium mb-0">
+                    {{ props.userData.department }}
+                  </p>
+                </div>
+              </div>
+            </VCol>
 
-            <VListItem>
-              <VListItemTitle>
-                <span class="text-sm font-weight-medium">직분: </span>
-                <span class="text-body-2">{{ props.userData.position }}</span>
-              </VListItemTitle>
-            </VListItem>
+            <!-- 직분 -->
+            <VCol
+              cols="12"
+              sm="6"
+            >
+              <div class="d-flex align-center gap-3 mb-2">
+                <VAvatar
+                  rounded
+                  color="primary"
+                  variant="tonal"
+                  size="42"
+                >
+                  <VIcon icon="mdi-badge-account-outline" />
+                </VAvatar>
+                <div>
+                  <p class="text-xs text-medium-emphasis mb-0">
+                    직분
+                  </p>
+                  <p class="text-sm font-weight-medium mb-0">
+                    {{ props.userData.position }}
+                  </p>
+                </div>
+              </div>
+            </VCol>
 
-            <VListItem v-if="props.userData.assignedClass">
-              <VListItemTitle>
-                <span class="text-sm font-weight-medium">담당: </span>
-                <span class="text-body-2">{{ props.userData.assignedClass }}</span>
-              </VListItemTitle>
-            </VListItem>
+            <!-- 상태 -->
+            <VCol
+              cols="12"
+              sm="6"
+            >
+              <div class="d-flex align-center gap-3 mb-2">
+                <VAvatar
+                  rounded
+                  color="primary"
+                  variant="tonal"
+                  size="42"
+                >
+                  <VIcon icon="mdi-check-circle-outline" />
+                </VAvatar>
+                <div>
+                  <p class="text-xs text-medium-emphasis mb-0">
+                    상태
+                  </p>
+                  <p class="text-sm font-weight-medium mb-0" :class="`text-${resolveStatusVariant(props.userData.status)}`">
+                    {{ props.userData.status }}
+                  </p>
+                </div>
+              </div>
+            </VCol>
 
-            <VListItem v-if="props.userData.extraRole">
-              <VListItemTitle>
-                <span class="text-sm font-weight-medium">부가역할: </span>
-                <span class="text-body-2">{{ props.userData.extraRole }}</span>
-              </VListItemTitle>
-            </VListItem>
+            <!-- 담당 -->
+            <VCol
+              v-if="props.userData.assignedClass"
+              cols="12"
+              sm="6"
+            >
+              <div class="d-flex align-center gap-3 mb-2">
+                <VAvatar
+                  rounded
+                  color="primary"
+                  variant="tonal"
+                  size="42"
+                >
+                  <VIcon icon="mdi-school-outline" />
+                </VAvatar>
+                <div>
+                  <p class="text-xs text-medium-emphasis mb-0">
+                    담당
+                  </p>
+                  <p class="text-sm font-weight-medium mb-0">
+                    {{ props.userData.assignedClass }}
+                  </p>
+                </div>
+              </div>
+            </VCol>
 
-            <VListItem v-if="props.userData.occupation">
-              <VListItemTitle>
-                <span class="text-sm font-weight-medium">직업: </span>
-                <span class="text-body-2">{{ props.userData.occupation }}</span>
-              </VListItemTitle>
-            </VListItem>
-
-            <VListItem>
-              <VListItemTitle>
-                <span class="text-sm font-weight-medium">구원생일: </span>
-                <span class="text-body-2">{{ props.userData.salvationBirthday || '-' }}</span>
-              </VListItemTitle>
-            </VListItem>
-          </VList>
+            <!-- 부가역할 -->
+            <VCol
+              v-if="props.userData.extraRole"
+              cols="12"
+              sm="6"
+            >
+              <div class="d-flex align-center gap-3 mb-2">
+                <VAvatar
+                  rounded
+                  color="primary"
+                  variant="tonal"
+                  size="42"
+                >
+                  <VIcon icon="mdi-star-outline" />
+                </VAvatar>
+                <div>
+                  <p class="text-xs text-medium-emphasis mb-0">
+                    부가역할
+                  </p>
+                  <p class="text-sm font-weight-medium mb-0">
+                    {{ props.userData.extraRole }}
+                  </p>
+                </div>
+              </div>
+            </VCol>
+          </VRow>
         </VCardText>
 
         <!-- 수정 버튼 -->
@@ -203,9 +209,3 @@ const resolveStatusVariant = status => {
     </VCol>
   </VRow>
 </template>
-
-<style lang="scss" scoped>
-.card-list {
-  --v-card-list-gap: 0.75rem;
-}
-</style>

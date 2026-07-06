@@ -1,4 +1,6 @@
 <script setup>
+import { useUserListStore } from '@/views/apps/user/useUserListStore'
+
 const props = defineProps({
   userData: {
     type: Object,
@@ -6,148 +8,43 @@ const props = defineProps({
   },
 })
 
-const resolveDeptVariant = dept => {
-  if (dept === '교무팀') return { color: 'primary' }
-  if (dept === '상담팀') return { color: 'info' }
-  if (dept === '초등1반') return { color: 'success' }
-  if (dept === '초등2반') return { color: 'warning' }
-  if (dept === '초등3반') return { color: 'error' }
-  return { color: 'secondary' }
-}
+const userListStore = useUserListStore()
 
-const resolveGroupVariant = group => {
-  if (group === '봉사회') return 'primary'
-  if (group === '어머니회') return 'info'
-  if (group === '청년회') return 'success'
-  return 'secondary'
+// 출석 통계
+const monthly = ref({ total: 0, present: 0, rate: 0, label: '' })
+const quarterly = ref({ total: 0, present: 0, rate: 0, label: '' })
+const yearly = ref({ total: 0, present: 0, rate: 0, label: '' })
+
+userListStore.fetchUserAttendanceStats(props.userData.id).then(response => {
+  const data = response.data
+
+  monthly.value = data.monthly
+  quarterly.value = data.quarterly
+  yearly.value = data.yearly
+})
+
+const rateColor = rate => {
+  if (rate >= 80) return 'success'
+  if (rate >= 50) return 'warning'
+  return 'error'
 }
 </script>
 
 <template>
   <VRow>
-    <!-- 부서 & 역할 정보 -->
-    <VCol cols="12">
-      <VCard title="부서 & 역할 정보">
-        <VDivider />
-        <VCardText>
-          <VRow>
-            <!-- 부서 -->
-            <VCol
-              cols="12"
-              sm="6"
-            >
-              <div class="d-flex align-center gap-3 mb-4">
-                <VAvatar
-                  rounded
-                  :color="resolveDeptVariant(props.userData.department).color"
-                  variant="tonal"
-                  size="42"
-                >
-                  <VIcon icon="mdi-account-group-outline" />
-                </VAvatar>
-                <div>
-                  <p class="text-xs text-medium-emphasis mb-0">
-                    부서
-                  </p>
-                  <VChip
-                    :color="resolveDeptVariant(props.userData.department).color"
-                    size="small"
-                    class="mt-1"
-                  >
-                    {{ props.userData.department }}
-                  </VChip>
-                </div>
-              </div>
-            </VCol>
-
-            <!-- 직분 -->
-            <VCol
-              cols="12"
-              sm="6"
-            >
-              <div class="d-flex align-center gap-3 mb-4">
-                <VAvatar
-                  rounded
-                  color="secondary"
-                  variant="tonal"
-                  size="42"
-                >
-                  <VIcon icon="mdi-badge-account-outline" />
-                </VAvatar>
-                <div>
-                  <p class="text-xs text-medium-emphasis mb-0">
-                    직분
-                  </p>
-                  <p class="text-sm font-weight-medium mb-0">
-                    {{ props.userData.position }}
-                  </p>
-                </div>
-              </div>
-            </VCol>
-
-            <!-- 담당분반 -->
-            <VCol
-              v-if="props.userData.assignedClass"
-              cols="12"
-              sm="6"
-            >
-              <div class="d-flex align-center gap-3 mb-4">
-                <VAvatar
-                  rounded
-                  color="success"
-                  variant="tonal"
-                  size="42"
-                >
-                  <VIcon icon="mdi-school-outline" />
-                </VAvatar>
-                <div>
-                  <p class="text-xs text-medium-emphasis mb-0">
-                    담당
-                  </p>
-                  <p class="text-sm font-weight-medium mb-0">
-                    {{ props.userData.assignedClass }}
-                  </p>
-                </div>
-              </div>
-            </VCol>
-
-            <!-- 부가역할 -->
-            <VCol
-              v-if="props.userData.extraRole"
-              cols="12"
-              sm="6"
-            >
-              <div class="d-flex align-center gap-3 mb-4">
-                <VAvatar
-                  rounded
-                  color="warning"
-                  variant="tonal"
-                  size="42"
-                >
-                  <VIcon icon="mdi-star-outline" />
-                </VAvatar>
-                <div>
-                  <p class="text-xs text-medium-emphasis mb-0">
-                    부가역할
-                  </p>
-                  <p class="text-sm font-weight-medium mb-0">
-                    {{ props.userData.extraRole }}
-                  </p>
-                </div>
-              </div>
-            </VCol>
-          </VRow>
-        </VCardText>
-      </VCard>
-    </VCol>
-
     <!-- 개인 정보 -->
-    <VCol cols="12">
-      <VCard title="개인 정보">
-        <VDivider />
+    <VCol
+      cols="12"
+      md="7"
+    >
+      <VCard class="h-100">
         <VCardText>
+          <h6 class="text-h6">
+            개인 정보
+          </h6>
+          <VDivider class="mt-4 mb-4" />
           <VRow>
-            <!-- 소속 -->
+            <!-- 연락처 -->
             <VCol
               cols="12"
               sm="6"
@@ -155,23 +52,22 @@ const resolveGroupVariant = group => {
               <div class="d-flex align-center gap-3 mb-4">
                 <VAvatar
                   rounded
-                  :color="resolveGroupVariant(props.userData.serviceGroup)"
+                  color="primary"
                   variant="tonal"
                   size="42"
                 >
-                  <VIcon icon="mdi-account-multiple-outline" />
+                  <VIcon icon="mdi-phone-outline" />
                 </VAvatar>
                 <div>
                   <p class="text-xs text-medium-emphasis mb-0">
-                    소속
+                    연락처
                   </p>
-                  <VChip
-                    :color="resolveGroupVariant(props.userData.serviceGroup)"
-                    size="small"
-                    class="mt-1"
+                  <a
+                    :href="`tel:${props.userData.contact}`"
+                    class="text-sm font-weight-medium"
                   >
-                    {{ props.userData.serviceGroup }}
-                  </VChip>
+                    {{ props.userData.contact }}
+                  </a>
                 </div>
               </div>
             </VCol>
@@ -195,7 +91,32 @@ const resolveGroupVariant = group => {
                     B/S
                   </p>
                   <p class="text-sm font-weight-medium mb-0">
-                    {{ props.userData.bs === 'B' ? '형제 (B)' : '자매 (S)' }}
+                    {{ props.userData.bs === 'B' ? '형제' : '자매' }}
+                  </p>
+                </div>
+              </div>
+            </VCol>
+
+            <!-- 소속 -->
+            <VCol
+              cols="12"
+              sm="6"
+            >
+              <div class="d-flex align-center gap-3 mb-4">
+                <VAvatar
+                  rounded
+                  color="primary"
+                  variant="tonal"
+                  size="42"
+                >
+                  <VIcon icon="mdi-account-multiple-outline" />
+                </VAvatar>
+                <div>
+                  <p class="text-xs text-medium-emphasis mb-0">
+                    소속
+                  </p>
+                  <p class="text-sm font-weight-medium mb-0">
+                    {{ props.userData.serviceGroup }}
                   </p>
                 </div>
               </div>
@@ -203,14 +124,13 @@ const resolveGroupVariant = group => {
 
             <!-- 직업 -->
             <VCol
-              v-if="props.userData.occupation"
               cols="12"
               sm="6"
             >
               <div class="d-flex align-center gap-3 mb-4">
                 <VAvatar
                   rounded
-                  color="info"
+                  color="primary"
                   variant="tonal"
                   size="42"
                 >
@@ -221,7 +141,7 @@ const resolveGroupVariant = group => {
                     직업
                   </p>
                   <p class="text-sm font-weight-medium mb-0">
-                    {{ props.userData.occupation }}
+                    {{ props.userData.occupation || '-' }}
                   </p>
                 </div>
               </div>
@@ -235,7 +155,7 @@ const resolveGroupVariant = group => {
               <div class="d-flex align-center gap-3 mb-4">
                 <VAvatar
                   rounded
-                  color="error"
+                  color="primary"
                   variant="tonal"
                   size="42"
                 >
@@ -251,35 +171,90 @@ const resolveGroupVariant = group => {
                 </div>
               </div>
             </VCol>
-
-            <!-- 연락처 -->
-            <VCol
-              cols="12"
-              sm="6"
-            >
-              <div class="d-flex align-center gap-3 mb-4">
-                <VAvatar
-                  rounded
-                  color="secondary"
-                  variant="tonal"
-                  size="42"
-                >
-                  <VIcon icon="mdi-phone-outline" />
-                </VAvatar>
-                <div>
-                  <p class="text-xs text-medium-emphasis mb-0">
-                    연락처
-                  </p>
-                  <a
-                    :href="`tel:${props.userData.contact}`"
-                    class="text-sm font-weight-medium"
-                  >
-                    {{ props.userData.contact }}
-                  </a>
-                </div>
-              </div>
-            </VCol>
           </VRow>
+        </VCardText>
+      </VCard>
+    </VCol>
+
+    <!-- 출석 통계 -->
+    <VCol
+      cols="12"
+      md="5"
+    >
+      <VCard class="h-100">
+        <VCardText>
+          <h6 class="text-h6">
+            출석 통계
+          </h6>
+          <VDivider class="mt-4 mb-4" />
+          <div class="d-flex flex-column gap-5">
+          <!-- 월간 -->
+          <div class="d-flex align-center gap-4">
+            <VProgressCircular
+              :model-value="monthly.rate"
+              :size="56"
+              :width="6"
+              :color="rateColor(monthly.rate)"
+            >
+              <span class="text-body-1 font-weight-bold">{{ monthly.rate }}%</span>
+            </VProgressCircular>
+            <div class="flex-grow-1">
+              <div class="d-flex justify-space-between mb-1">
+                <span class="text-sm font-weight-medium">월간 출석률</span>
+                <span class="text-xs text-medium-emphasis">{{ monthly.label }}</span>
+              </div>
+              <span class="text-xs text-medium-emphasis">
+                {{ monthly.present }}/{{ monthly.total }}회 출석
+              </span>
+            </div>
+          </div>
+
+          <VDivider />
+
+          <!-- 분기 -->
+          <div class="d-flex align-center gap-4">
+            <VProgressCircular
+              :model-value="quarterly.rate"
+              :size="56"
+              :width="6"
+              :color="rateColor(quarterly.rate)"
+            >
+              <span class="text-body-1 font-weight-bold">{{ quarterly.rate }}%</span>
+            </VProgressCircular>
+            <div class="flex-grow-1">
+              <div class="d-flex justify-space-between mb-1">
+                <span class="text-sm font-weight-medium">분기 출석률</span>
+                <span class="text-xs text-medium-emphasis">{{ quarterly.label }}</span>
+              </div>
+              <span class="text-xs text-medium-emphasis">
+                {{ quarterly.present }}/{{ quarterly.total }}회 출석
+              </span>
+            </div>
+          </div>
+
+          <VDivider />
+
+          <!-- 연간 -->
+          <div class="d-flex align-center gap-4">
+            <VProgressCircular
+              :model-value="yearly.rate"
+              :size="56"
+              :width="6"
+              :color="rateColor(yearly.rate)"
+            >
+              <span class="text-body-1 font-weight-bold">{{ yearly.rate }}%</span>
+            </VProgressCircular>
+            <div class="flex-grow-1">
+              <div class="d-flex justify-space-between mb-1">
+                <span class="text-sm font-weight-medium">연간 출석률</span>
+                <span class="text-xs text-medium-emphasis">{{ yearly.label }}</span>
+              </div>
+              <span class="text-xs text-medium-emphasis">
+                {{ yearly.present }}/{{ yearly.total }}회 출석
+              </span>
+            </div>
+          </div>
+          </div>
         </VCardText>
       </VCard>
     </VCol>

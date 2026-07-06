@@ -188,6 +188,169 @@ mock.onPut(/\/apps\/users\/\d+/).reply(config => {
   return [404]
 })
 
+// 👉 출결 데이터 (메모리 저장)
+const attendanceRecords = {}
+
+mock.onGet('/apps/attendance').reply(config => {
+  const { date, type } = config.params ?? {}
+  const key = `${date}_${type}`
+  const presentIds = attendanceRecords[key] || []
+
+  const activeUsers = users.filter(u => u.status === '현직')
+  const records = activeUsers.map(u => ({
+    id: u.id,
+    fullName: u.fullName,
+    department: u.department,
+    contact: u.contact,
+    serviceGroup: u.serviceGroup,
+    bs: u.bs,
+    avatar: u.avatar,
+    present: presentIds.includes(u.id),
+  }))
+
+  const presentCount = records.filter(r => r.present).length
+  const totalCount = records.length
+
+  const deptOrder = ['교무팀', '상담팀', '초등1반', '초등2반', '초등3반']
+  const deptStats = {}
+
+  deptOrder.forEach(dept => {
+    const deptUsers = records.filter(r => r.department === dept)
+
+    deptStats[dept] = {
+      total: deptUsers.length,
+      present: deptUsers.filter(r => r.present).length,
+    }
+  })
+
+  return [200, {
+    records,
+    total: totalCount,
+    presentCount,
+    absentCount: totalCount - presentCount,
+    rate: totalCount > 0 ? Math.round(presentCount / totalCount * 100) : 0,
+    deptStats,
+  }]
+})
+
+// 👉 월별 부서 평균 출석 통계
+mock.onGet('/apps/attendance/monthly-stats').reply(config => {
+  const { month, type } = config.params ?? {}
+  const activeUsers = users.filter(u => u.status === '현직')
+  const deptOrder = ['교무팀', '상담팀', '초등1반', '초등2반', '초등3반']
+
+  // 해당 월+타입에 해당하는 모든 출석 기록 키 수집
+  const matchingKeys = Object.keys(attendanceRecords).filter(key => {
+    const [date, t] = key.split('_')
+
+    return date.startsWith(month) && t === type
+  })
+
+  const deptMonthlyStats = {}
+
+  deptOrder.forEach(dept => {
+    const deptUsers = activeUsers.filter(u => u.department === dept)
+    const total = deptUsers.length
+
+    if (matchingKeys.length === 0) {
+      deptMonthlyStats[dept] = { total, presentAvg: 0, rate: 0, days: 0 }
+
+      return
+    }
+
+    let presentSum = 0
+
+    matchingKeys.forEach(key => {
+      const presentIds = attendanceRecords[key] || []
+
+      presentSum += deptUsers.filter(u => presentIds.includes(u.id)).length
+    })
+
+    const presentAvg = Math.round(presentSum / matchingKeys.length * 10) / 10
+    const rate = total > 0 ? Math.round(presentAvg / total * 100) : 0
+
+    deptMonthlyStats[dept] = { total, presentAvg, rate, days: matchingKeys.length }
+  })
+
+  return [200, { deptMonthlyStats, days: matchingKeys.length }]
+})
+
+// 👉 개인 출석 통계 (월간/분기/연간)
+mock.onGet('/apps/attendance/user-stats').reply(config => {
+  const { userId } = config.params ?? {}
+  const id = Number(userId)
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() // 0-based
+  const quarter = Math.floor(month / 3)
+  const qStart = quarter * 3 // quarter start month (0-based)
+
+  const calcRate = filterFn => {
+    const keys = Object.keys(attendanceRecords).filter(k => {
+      const date = k.split('_')[0]
+
+      return filterFn(date)
+    })
+    const total = keys.length
+    const present = keys.filter(k => (attendanceRecords[k] || []).includes(id)).length
+
+    return { total, present, rate: total > 0 ? Math.round(present / total * 100) : 0 }
+  }
+
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`
+  const yearPrefix = `${year}-`
+
+  const monthly = calcRate(d => d.startsWith(monthPrefix))
+  const quarterly = calcRate(d => {
+    if (!d.startsWith(yearPrefix)) return false
+    const m = Number(d.split('-')[1]) - 1
+
+    return m >= qStart && m < qStart + 3
+  })
+  const yearly = calcRate(d => d.startsWith(yearPrefix))
+
+  return [200, {
+    monthly: { ...monthly, label: `${month + 1}월` },
+    quarterly: { ...quarterly, label: `${quarter + 1}분기` },
+    yearly: { ...yearly, label: `${year}년` },
+  }]
+})
+
+// 👉 개인 연도별 출석 통계
+mock.onGet('/apps/attendance/user-yearly-stats').reply(config => {
+  const { userId } = config.params ?? {}
+  const id = Number(userId)
+  const allKeys = Object.keys(attendanceRecords)
+
+  // 연도 목록 추출
+  const years = [...new Set(allKeys.map(k => k.split('-')[0]))].sort((a, b) => b - a)
+
+  const yearlyStats = {}
+
+  years.forEach(y => {
+    const keys = allKeys.filter(k => k.startsWith(`${y}-`))
+    const total = keys.length
+    const present = keys.filter(k => (attendanceRecords[k] || []).includes(id)).length
+
+    yearlyStats[Number(y)] = {
+      total,
+      present,
+      rate: total > 0 ? Math.round(present / total * 100) : 0,
+    }
+  })
+
+  return [200, { yearlyStats }]
+})
+
+mock.onPost('/apps/attendance').reply(config => {
+  const { date, type, presentIds } = JSON.parse(config.data)
+  const key = `${date}_${type}`
+
+  attendanceRecords[key] = presentIds
+
+  return [200]
+})
+
 // 👉 교사 삭제
 mock.onDelete(/\/apps\/users\/\d+/).reply(config => {
   const userId = config.url?.substring(config.url.lastIndexOf('/') + 1)
