@@ -1,4 +1,5 @@
 /* eslint-disable import/order */
+// 목업 데이터(더미). VITE_USE_MOCK=false 면 각 목업이 실제 백엔드로 통과시킵니다.
 import '@/@fake-db/db'
 import '@/@iconify/icons-bundle'
 import App from '@/App.vue'

@@ -1,0 +1,218 @@
+name: Build and deploy
+
+# MariaDB + 백엔드 + 프론트엔드 이미지를 GitHub 호스티드 러너에서 빌드해 GHCR 에 올리고,
+# NAS 의 self-hosted 러너가 그 이미지를 pull 해서 갱신합니다.
+# NAS 에서 빌드하지 않는 이유: Synology CPU/메모리로 Vite 빌드는 느리고 OOM 위험이 있습니다.
+#
+# ⚠️ 이 저장소는 PUBLIC 이고 self-hosted 러너가 붙어 있습니다.
+#    pull_request 트리거를 절대 추가하지 마세요. 외부인이 PR 만으로
+#    NAS 에서 임의 코드를 실행할 수 있습니다. push / workflow_dispatch 만 사용합니다.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 배포 대상
+        type: choice
+        options: [production, demo, both]
+        default: production
+
+permissions:
+  contents: read
+  packages: write
+
+# 배포가 겹치지 않도록 직렬화합니다.
+# 중간에 취소하면 어중간한 상태가 남을 수 있어 cancel-in-progress 는 끕니다.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  # GHCR 은 소문자만 허용하므로 소유자명을 소문자로 고정합니다.
+  REGISTRY_NS: ghcr.io/sangwookjeong
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 운영 프론트엔드. /api 프록시를 타므로 절대 URL 이 필요 없습니다.
+          - name: web
+            image: suwon-es-web
+            context: .
+            file: deploy/frontend.Dockerfile
+            suffix: ''
+            args: |
+              VITE_MODE=production
+              VITE_API_BASE_URL=/api
+
+          # 목업 데모 프론트엔드 (백엔드/DB 불필요)
+          - name: web-test
+            image: suwon-es-web
+            context: .
+            file: deploy/frontend.Dockerfile
+            suffix: '-test'
+            args: |
+              VITE_MODE=test
+
+          # 백엔드 API
+          - name: api
+            image: suwon-es-api
+            context: ./backend
+            file: backend/Dockerfile
+            suffix: ''
+            args: ''
+
+          # 스키마를 구워 넣은 MariaDB (bind mount 회피용)
+          - name: db
+            image: suwon-es-db
+            context: ./backend
+            file: deploy/mariadb.Dockerfile
+            suffix: ''
+            args: ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push (${{ matrix.name }})
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: true
+          # NAS 가 인텔(x86_64)이므로 amd64 입니다. ARM NAS 면 linux/arm64 로 바꾸세요.
+          platforms: linux/amd64
+          tags: |
+            ${{ env.REGISTRY_NS }}/${{ matrix.image }}:${{ github.sha }}${{ matrix.suffix }}
+            ${{ env.REGISTRY_NS }}/${{ matrix.image }}:main${{ matrix.suffix }}
+          build-args: ${{ matrix.args }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    needs: build
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: read
+
+    # ⚠️ compose 파일이 ${VAR:?} 로 요구하는 값들입니다.
+    #    러너가 checkout 한 디렉터리에는 .env 가 없으므로(.gitignore) 반드시 여기서 넣어야 합니다.
+    #    없으면 `docker compose pull` 이 "required variable ... is missing a value" 로 즉시 실패합니다.
+    #    job 레벨에 두는 이유: pull/up 뿐 아니라 헬스체크의 `compose ps` 도 파일을 해석하기 때문입니다.
+    #    값은 저장소 Settings > Secrets and variables > Actions 에 등록합니다.
+    env:
+      MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+      MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      # 아래 둘은 compose 에 기본값이 있어 비워두면 suwon_es_admin / suwon_app 이 됩니다.
+      MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
+      MYSQL_USER: ${{ secrets.MYSQL_USER }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: docker compose v2 확인
+        run: |
+          docker compose version || {
+            echo "::error::러너에 docker compose v2 플러그인이 없습니다. myoung34/github-runner 이미지를 갱신하세요."
+            exit 1
+          }
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 필수 시크릿 확인
+        run: |
+          missing=""
+          for v in MYSQL_ROOT_PASSWORD MYSQL_PASSWORD JWT_SECRET; do
+            # bash 간접 확장. eval 과 달리 값에 공백/특수문자가 있어도 안전합니다.
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::GitHub Actions 시크릿이 비어 있습니다:$missing"
+            echo "::error::저장소 Settings > Secrets and variables > Actions 에서 등록하세요."
+            exit 1
+          fi
+          echo "필수 시크릿 확인 완료"
+
+      - name: 배포 대상 결정
+        id: target
+        run: |
+          # push 이벤트에는 inputs 가 없으므로 production 으로 떨어집니다.
+          target="${{ github.event.inputs.target || 'production' }}"
+          case "$target" in
+            production) services="mariadb backend frontend"; profile="" ;;
+            demo)       services="frontend-test";            profile="--profile demo" ;;
+            both)       services="mariadb backend frontend frontend-test"; profile="--profile demo" ;;
+            *) echo "::error::알 수 없는 배포 대상: $target"; exit 1 ;;
+          esac
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+          echo "profile=$profile"   >> "$GITHUB_OUTPUT"
+          echo "대상: $target -> $services"
+
+      - name: Pull & 재기동
+        env:
+          # web/api 는 커밋 SHA 로 고정 배포합니다(정확한 롤백을 위해).
+          WEB_IMAGE: ${{ env.REGISTRY_NS }}/suwon-es-web:${{ github.sha }}
+          WEB_TEST_IMAGE: ${{ env.REGISTRY_NS }}/suwon-es-web:${{ github.sha }}-test
+          API_IMAGE: ${{ env.REGISTRY_NS }}/suwon-es-api:${{ github.sha }}
+          # DB 이미지는 main 태그로 둡니다. 스키마가 바뀌지 않으면 digest 가 같아
+          # 컨테이너가 불필요하게 재생성되지 않습니다.
+          DB_IMAGE: ${{ env.REGISTRY_NS }}/suwon-es-db:main
+        run: |
+          set -e
+          C="docker compose -f deploy/docker-compose.nas.yml ${{ steps.target.outputs.profile }}"
+          $C pull ${{ steps.target.outputs.services }}
+          $C up -d ${{ steps.target.outputs.services }}
+
+      - name: 헬스체크
+        run: |
+          set -e
+          # 러너 컨테이너의 localhost 는 호스트가 아니므로, 도커 소켓을 통해
+          # 각 컨테이너 자신의 health 상태를 확인합니다.
+          C="docker compose -f deploy/docker-compose.nas.yml ${{ steps.target.outputs.profile }}"
+          for s in ${{ steps.target.outputs.services }}; do
+            cid=$($C ps -q "$s")
+            if [ -z "$cid" ]; then
+              echo "::error::$s 컨테이너를 찾을 수 없습니다"; exit 1
+            fi
+            ok=""; status=unknown
+            # DB 초기화까지 있어 최대 120초 대기합니다.
+            for i in $(seq 1 60); do
+              status=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null || echo unknown)
+              if [ "$status" = "healthy" ]; then ok=1; echo "$s: healthy"; break; fi
+              if [ "$status" = "none" ];    then ok=1; echo "$s: (healthcheck 없음, 기동 확인만)"; break; fi
+              sleep 2
+            done
+            if [ -z "$ok" ]; then
+              echo "::error::$s 헬스체크 실패 (마지막 상태=$status)"
+              docker logs --tail 80 "$cid" || true
+              exit 1
+            fi
+          done
+
+      - name: 오래된 이미지 정리
+        if: always()
+        run: |
+          # dangling 만 제거합니다. -a 는 NAS 의 다른 스택 이미지까지 지우므로 쓰지 않습니다.
+          docker image prune -f
+          # 우리 이미지만 최신 6개까지 유지 (사용 중 이미지는 rmi 가 실패하므로 그대로 남습니다).
+          for repo in suwon-es-web suwon-es-api suwon-es-db; do
+            docker images "${{ env.REGISTRY_NS }}/$repo" --format '{{.ID}}' \
+              | awk '!seen[$0]++' | tail -n +7 \
+              | xargs -r docker rmi 2>/dev/null || true
+          done

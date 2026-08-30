@@ -3,7 +3,24 @@
 @use "vuetify/lib/styles/tools/states" as vuetifyStates;
 
 %nav-header-action {
-  font-size: 1.25rem;
+  cursor: pointer;
+
+  // ℹ️ 아이콘이 <svg width="1em" height="1em"> 로 그려지므로 font-size 가 곧 크기입니다.
+  //    .v-icon 의 width/height: 1em 규칙보다 확실히 이기도록 크기도 함께 명시합니다.
+  block-size: 1rem;
+  font-size: 1rem;
+  inline-size: 1rem;
+
+  // ⚠️ 반드시 필요: 이게 없으면 폭이 넓은 로고에 밀려 플렉스 압착으로 아이콘이 찌그러집니다.
+  //    (svg 는 preserveAspectRatio 때문에 폭이 줄면 그림 전체가 같이 작아집니다)
+  flex-shrink: 0;
+  opacity: var(--v-medium-emphasis-opacity);
+  transition: color 0.15s ease-in-out, opacity 0.15s ease-in-out;
+
+  &:hover {
+    color: rgb(var(--v-theme-primary));
+    opacity: 1;
+  }
 }
 
 // Nav items styles (including section title)

@@ -6,10 +6,11 @@ import { requiredValidator } from '@validators'
 const userListStore = useUserListStore()
 const router = useRouter()
 const searchQuery = ref('')
-const selectedDepartment = ref()
-const selectedServiceGroup = ref()
-const selectedOccupation = ref()
-const selectedStatus = ref()
+const selectedDepartment = ref([])
+const selectedServiceGroup = ref([])
+const selectedOccupation = ref([])
+const selectedStatus = ref([])
+const selectedBs = ref([])
 const rowPerPage = ref(20)
 const currentPage = ref(1)
 const totalPage = ref(1)
@@ -30,6 +31,7 @@ const fetchUsers = () => {
     serviceGroup: selectedServiceGroup.value,
     occupation: selectedOccupation.value,
     status: selectedStatus.value,
+    bs: selectedBs.value,
     perPage: rowPerPage.value,
     currentPage: currentPage.value,
   }).then(response => {
@@ -280,45 +282,116 @@ const onRowClick = user => {
           v-model="selectedDepartment"
           label="부서"
           :items="departments"
+          multiple
           density="compact"
           clearable
           clear-icon="mdi-close"
           hide-details
           class="filter-select"
-        />
+        >
+          <template #selection="{ item, index }">
+            <span
+              v-if="index === 0"
+              class="text-truncate"
+            >{{ item.title }}</span>
+            <span
+              v-if="index === 1"
+              class="text-caption text-medium-emphasis ms-1"
+            >(+{{ selectedDepartment.length - 1 }})</span>
+          </template>
+        </VSelect>
 
         <VSelect
           v-model="selectedServiceGroup"
           label="소속"
           :items="serviceGroups"
+          multiple
           density="compact"
           clearable
           clear-icon="mdi-close"
           hide-details
           class="filter-select"
-        />
+        >
+          <template #selection="{ item, index }">
+            <span
+              v-if="index === 0"
+              class="text-truncate"
+            >{{ item.title }}</span>
+            <span
+              v-if="index === 1"
+              class="text-caption text-medium-emphasis ms-1"
+            >(+{{ selectedServiceGroup.length - 1 }})</span>
+          </template>
+        </VSelect>
+
+        <VSelect
+          v-model="selectedBs"
+          label="형제/자매"
+          :items="bsOptions"
+          multiple
+          density="compact"
+          clearable
+          clear-icon="mdi-close"
+          hide-details
+          class="filter-select"
+        >
+          <template #selection="{ item, index }">
+            <span
+              v-if="index === 0"
+              class="text-truncate"
+            >{{ item.title }}</span>
+            <span
+              v-if="index === 1"
+              class="text-caption text-medium-emphasis ms-1"
+            >(+{{ selectedBs.length - 1 }})</span>
+          </template>
+        </VSelect>
 
         <VSelect
           v-model="selectedOccupation"
           label="직업"
           :items="occupations"
+          multiple
           density="compact"
           clearable
           clear-icon="mdi-close"
           hide-details
           class="filter-select"
-        />
+        >
+          <template #selection="{ item, index }">
+            <span
+              v-if="index === 0"
+              class="text-truncate"
+            >{{ item.title }}</span>
+            <span
+              v-if="index === 1"
+              class="text-caption text-medium-emphasis ms-1"
+            >(+{{ selectedOccupation.length - 1 }})</span>
+          </template>
+        </VSelect>
 
         <VSelect
           v-model="selectedStatus"
           label="상태"
           :items="statuses"
+          multiple
           density="compact"
           clearable
           clear-icon="mdi-close"
           hide-details
           class="filter-select"
-        />
+        >
+          <template #selection="{ item, index }">
+            <span
+              v-if="index === 0"
+              class="text-truncate"
+            >{{ item.title }}</span>
+            <span
+              v-if="index === 1"
+              class="text-caption text-medium-emphasis ms-1"
+            >(+{{ selectedStatus.length - 1 }})</span>
+          </template>
+        </VSelect>
 
         <VTextField
           v-model="searchQuery"

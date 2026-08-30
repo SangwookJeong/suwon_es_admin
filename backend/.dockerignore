@@ -1,0 +1,7 @@
+# 백엔드 이미지는 package.json 으로 npm install 을 다시 하므로
+# 호스트의 node_modules 를 컨텍스트에 올릴 필요가 없습니다.
+node_modules
+npm-debug.log*
+.env
+*.log
+.DS_Store

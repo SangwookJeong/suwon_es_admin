@@ -21,8 +21,9 @@ export const { themeConfig, layoutConfig } = defineThemeConfig({
     iconRenderer: VIcon,
   },
   navbar: {
-    type: NavbarType.Sticky,
-    navbarBlur: true,
+    // ℹ️ Static: 휠을 내리면 툴바도 본문과 같이 위로 올라갑니다 (Sticky 처럼 따라붙지 않음)
+    type: NavbarType.Static,
+    navbarBlur: false,
   },
   footer: { type: FooterType.Static },
   verticalNav: {
@@ -38,8 +39,8 @@ export const { themeConfig, layoutConfig } = defineThemeConfig({
     chevronDown: { icon: 'mdi-chevron-down' },
     chevronRight: { icon: 'mdi-chevron-right' },
     close: { icon: 'mdi-close' },
-    verticalNavPinned: { icon: 'mdi-radiobox-marked' },
-    verticalNavUnPinned: { icon: 'mdi-radiobox-blank' },
+    verticalNavPinned: { icon: 'mdi-chevron-double-left' },
+    verticalNavUnPinned: { icon: 'mdi-chevron-double-right' },
     sectionTitlePlaceholder: { icon: 'mdi-minus' },
   },
 })

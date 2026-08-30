@@ -1,60 +1,68 @@
 <script setup>
 import { VForm } from 'vuetify/components'
 import { useAppAbility } from '@/plugins/casl/useAppAbility'
-import AuthProvider from '@/views/pages/authentication/AuthProvider.vue'
 import axios from '@axios'
+import LoginIllustration from '@/views/login/LoginIllustration.vue'
 import { useGenerateImageVariant } from '@core/composable/useGenerateImageVariant'
-import tree from '@images/pages/tree.png'
 import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
 import { themeConfig } from '@themeConfig'
-import {
-  emailValidator,
-  requiredValidator,
-} from '@validators'
-import authV2LoginIllustrationBorderedDark from '@images/pages/auth-v2-login-illustration-bordered-dark.png'
-import authV2LoginIllustrationBorderedLight from '@images/pages/auth-v2-login-illustration-bordered-light.png'
-import authV2LoginIllustrationDark from '@images/pages/auth-v2-login-illustration-dark.png'
-import authV2LoginIllustrationLight from '@images/pages/auth-v2-login-illustration-light.png'
+import { requiredValidator } from '@validators'
 import authV2MaskDark from '@images/pages/auth-v2-mask-dark.png'
 import authV2MaskLight from '@images/pages/auth-v2-mask-light.png'
 
 const isPasswordVisible = ref(false)
-const authThemeImg = useGenerateImageVariant(authV2LoginIllustrationLight, authV2LoginIllustrationDark, authV2LoginIllustrationBorderedLight, authV2LoginIllustrationBorderedDark, true)
 const authThemeMask = useGenerateImageVariant(authV2MaskLight, authV2MaskDark)
 const route = useRoute()
 const router = useRouter()
 const ability = useAppAbility()
 
+const refVForm = ref()
+const loginId = ref('')
+const password = ref('')
+const isLoading = ref(false)
+
 const errors = ref({
-  email: undefined,
+  loginId: undefined,
   password: undefined,
 })
 
-const refVForm = ref()
-const email = ref('admin@demo.com')
-const password = ref('admin')
-const rememberMe = ref(false)
+const clearSession = () => {
+  localStorage.removeItem('userData')
+  localStorage.removeItem('userAbilities')
+  localStorage.removeItem('accessToken')
+}
 
-const login = () => {
-  axios.post('/auth/login', {
-    email: email.value,
-    password: password.value,
-  }).then(r => {
-    const { accessToken, userData, userAbilities } = r.data
+const login = async () => {
+  isLoading.value = true
+  errors.value = { loginId: undefined, password: undefined }
 
-    localStorage.setItem('userAbilities', JSON.stringify(userAbilities))
-    ability.update(userAbilities)
-    localStorage.setItem('userData', JSON.stringify(userData))
-    localStorage.setItem('accessToken', JSON.stringify(accessToken))
+  try {
+    // 백엔드는 accounts.email 컬럼으로 계정을 조회합니다.
+    // (backend/src/routes/auth.routes.js — POST /auth/login)
+    const { data } = await axios.post('/auth/login', {
+      email: loginId.value,
+      password: password.value,
+    })
 
-    // Redirect to `to` query if exist or redirect to index route
+    localStorage.setItem('userAbilities', JSON.stringify(data.userAbilities))
+    localStorage.setItem('userData', JSON.stringify(data.userData))
+    localStorage.setItem('accessToken', JSON.stringify(data.accessToken))
+    ability.update(data.userAbilities)
+
     router.replace(route.query.to ? String(route.query.to) : '/')
-  }).catch(e => {
-    const { errors: formErrors } = e.response.data
+  }
+  catch (error) {
+    clearSession()
 
-    errors.value = formErrors
-    console.error(e.response.data)
-  })
+    errors.value = {
+      loginId: error.response?.data?.errors?.email?.[0] || '아이디 또는 비밀번호가 올바르지 않습니다.',
+      password: undefined,
+    }
+    console.error(error)
+  }
+  finally {
+    isLoading.value = false
+  }
 }
 
 const onSubmit = () => {
@@ -80,16 +88,7 @@ const onSubmit = () => {
         lg="8"
         class="d-none d-lg-flex align-center justify-center position-relative"
       >
-        <VImg
-          max-width="768px"
-          :src="authThemeImg"
-          class="auth-illustration"
-        />
-        <VImg
-          :width="276"
-          :src="tree"
-          class="auth-footer-start-tree"
-        />
+        <LoginIllustration class="auth-illustration" />
         <VImg
           class="auth-footer-mask"
           :src="authThemeMask"
@@ -108,24 +107,11 @@ const onSubmit = () => {
         >
           <VCardText>
             <h5 class="text-h5 mb-1">
-              Welcome to {{ themeConfig.app.title }}! 👋🏻
+              {{ themeConfig.app.title }} 👋🏻
             </h5>
             <p class="mb-0">
-              Please sign-in to your account and start the adventure
+              발급받은 아이디와 비밀번호로 로그인하세요
             </p>
-          </VCardText>
-          <VCardText>
-            <VAlert
-              color="primary"
-              variant="tonal"
-            >
-              <p class="text-caption mb-2">
-                Admin Email: <strong>admin@demo.com</strong> / Pass: <strong>admin</strong>
-              </p>
-              <p class="text-caption mb-0">
-                Client Email: <strong>client@demo.com</strong> / Pass: <strong>client</strong>
-              </p>
-            </VAlert>
           </VCardText>
           <VCardText>
             <VForm
@@ -133,22 +119,23 @@ const onSubmit = () => {
               @submit.prevent="onSubmit"
             >
               <VRow>
-                <!-- email -->
+                <!-- 아이디 -->
                 <VCol cols="12">
                   <VTextField
-                    v-model="email"
-                    label="Email"
-                    type="email"
-                    :rules="[requiredValidator, emailValidator]"
-                    :error-messages="errors.email"
+                    v-model="loginId"
+                    label="아이디"
+                    autocomplete="username"
+                    :rules="[requiredValidator]"
+                    :error-messages="errors.loginId"
                   />
                 </VCol>
 
-                <!-- password -->
+                <!-- 비밀번호 -->
                 <VCol cols="12">
                   <VTextField
                     v-model="password"
-                    label="Password"
+                    label="비밀번호"
+                    autocomplete="current-password"
                     :rules="[requiredValidator]"
                     :type="isPasswordVisible ? 'text' : 'password'"
                     :error-messages="errors.password"
@@ -156,55 +143,23 @@ const onSubmit = () => {
                     @click:append-inner="isPasswordVisible = !isPasswordVisible"
                   />
 
-                  <div class="d-flex align-center flex-wrap justify-space-between mt-1 mb-4">
-                    <VCheckbox
-                      v-model="rememberMe"
-                      label="Remember me"
-                    />
-                    <RouterLink
-                      class="text-primary ms-2 mb-1"
-                      :to="{ name: 'forgot-password' }"
-                    >
-                      Forgot Password?
-                    </RouterLink>
-                  </div>
-
                   <VBtn
                     block
                     type="submit"
+                    class="mt-6"
+                    :loading="isLoading"
                   >
-                    Login
+                    로그인
                   </VBtn>
                 </VCol>
 
-                <!-- create account -->
                 <VCol
                   cols="12"
                   class="text-center"
                 >
-                  <span>New on our platform?</span>
-                  <RouterLink
-                    class="text-primary ms-2"
-                    :to="{ name: 'register' }"
-                  >
-                    Create an account
-                  </RouterLink>
-                </VCol>
-                <VCol
-                  cols="12"
-                  class="d-flex align-center"
-                >
-                  <VDivider />
-                  <span class="mx-4">or</span>
-                  <VDivider />
-                </VCol>
-
-                <!-- auth providers -->
-                <VCol
-                  cols="12"
-                  class="text-center"
-                >
-                  <AuthProvider />
+                  <span class="text-disabled text-body-2">
+                    계정 발급 및 비밀번호 초기화는 관리자에게 문의하세요
+                  </span>
                 </VCol>
               </VRow>
             </VForm>

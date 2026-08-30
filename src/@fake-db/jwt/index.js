@@ -1,8 +1,12 @@
 import avatar1 from '@images/avatars/avatar-1.png'
 import avatar2 from '@images/avatars/avatar-2.png'
 import mock from '@/@fake-db/mock'
+import { useMock } from '@/@fake-db/useMock'
 
+if (useMock)
+  registerAuthMock()
 
+function registerAuthMock() {
 // TODO: Use jsonwebtoken pkg
 // ℹ️ Created from https://jwt.io/ using HS256 algorithm
 // ℹ️ We didn't created it programmatically because jsonwebtoken package have issues with esm support. View Issues: https://github.com/auth0/node-jsonwebtoken/issues/655
@@ -66,7 +70,8 @@ mock.onPost('/auth/login').reply(request => {
   let errors = {
     email: ['Something went wrong'],
   }
-  const user = database.find(u => u.email === email && u.password === password)
+  // 화면에서는 "아이디"로 입력받으므로 username / email 둘 다 허용합니다.
+  const user = database.find(u => (u.username === email || u.email === email) && u.password === password)
   if (user) {
     try {
       const accessToken = userTokens[user.id]
@@ -93,7 +98,7 @@ mock.onPost('/auth/login').reply(request => {
   }
   else {
     errors = {
-      email: ['Email or Password is Invalid'],
+      email: ['아이디 또는 비밀번호가 올바르지 않습니다'],
     }
   }
   
@@ -165,6 +170,7 @@ mock.onPost('/auth/register').reply(request => {
 
     return [200, response]
   }
-  
+
   return [400, { error: errors }]
 })
+}

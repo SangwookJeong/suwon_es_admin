@@ -7,7 +7,12 @@ import avatar6 from '@images/avatars/avatar-6.png'
 import avatar7 from '@images/avatars/avatar-7.png'
 import avatar8 from '@images/avatars/avatar-8.png'
 import mock from '@/@fake-db/mock'
+import { useMock } from '@/@fake-db/useMock'
 
+if (useMock)
+  registerUserListMock()
+
+function registerUserListMock() {
 const avatars = [avatar1, avatar2, avatar3, avatar4, avatar5, avatar6, avatar7, avatar8]
 const av = i => avatars[i % avatars.length]
 
@@ -78,26 +83,36 @@ const users = [
 ]
 
 
-// 👉 교사 목록 반환
+// 다중/단일 선택 값을 배열로 정규화 (빈 값이면 필터 없음을 의미하는 빈 배열)
+const toFilterArray = value => {
+  if (value === undefined || value === null || value === '') return []
+
+  return Array.isArray(value) ? value : [value]
+}
+
+// 👉 교사 목록 반환 (부서/소속/직업/상태/B·S 다중 선택 필터 지원)
 mock.onGet('/apps/users/list').reply(config => {
   const {
     q = '',
-    department = null,
-    serviceGroup = null,
-    occupation = null,
-    status = null,
     perPage = 10,
     currentPage = 1,
   } = config.params ?? {}
+
+  const departments = toFilterArray(config.params?.department)
+  const serviceGroups = toFilterArray(config.params?.serviceGroup)
+  const occupationsSelected = toFilterArray(config.params?.occupation)
+  const statuses = toFilterArray(config.params?.status)
+  const bsList = toFilterArray(config.params?.bs)
 
   const queryLower = q.toLowerCase()
 
   let filteredUsers = users.filter(user =>
     (user.fullName.toLowerCase().includes(queryLower) || user.contact.includes(queryLower))
-    && user.department === (department || user.department)
-    && user.serviceGroup === (serviceGroup || user.serviceGroup)
-    && (occupation ? user.occupation === occupation : true)
-    && (status ? user.status === status : true),
+    && (!departments.length || departments.includes(user.department))
+    && (!serviceGroups.length || serviceGroups.includes(user.serviceGroup))
+    && (!occupationsSelected.length || occupationsSelected.includes(user.occupation))
+    && (!statuses.length || statuses.includes(user.status))
+    && (!bsList.length || bsList.includes(user.bs)),
   )
 
   const totalPage = Math.ceil(filteredUsers.length / perPage) || 1
@@ -365,3 +380,4 @@ mock.onDelete(/\/apps\/users\/\d+/).reply(config => {
 
   return [404]
 })
+}

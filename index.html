@@ -24,8 +24,14 @@
   </div>
   <script type="module" src="/src/main.js"></script>
   <script>
-    const loaderColor = localStorage.getItem('Materio-initial-loader-bg') || '#FFFFFF'
-    const primaryColor = localStorage.getItem('Materio-initial-loader-color') || '#003678'
+    // ℹ️ Keys must match `themeConfig.app.title` in themeConfig.js
+    const APP_TITLE = '수원교회 초등부'
+
+    // 🧹 Remove stale keys from the original template title so old purple values don't leak in
+    ;['Materio-initial-loader-bg', 'Materio-initial-loader-color'].forEach(k => localStorage.removeItem(k))
+
+    const loaderColor = localStorage.getItem(`${APP_TITLE}-initial-loader-bg`) || '#FFFFFF'
+    const primaryColor = localStorage.getItem(`${APP_TITLE}-initial-loader-color`) || '#003678'
 
     if (loaderColor)
       document.documentElement.style.setProperty('--initial-loader-bg', loaderColor)

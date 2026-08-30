@@ -5,7 +5,6 @@ import { useThemeConfig } from '@core/composable/useThemeConfig'
 // Components
 import Footer from '@/layouts/components/Footer.vue'
 import NavBarNotifications from '@/layouts/components/NavBarNotifications.vue'
-import NavSearchBar from '@/layouts/components/NavSearchBar.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
 
 // @layouts plugin
@@ -37,8 +36,6 @@ const { width: windowWidth } = useWindowSize()
           />
         </VBtn>
 
-        <NavSearchBar class="ms-lg-n3" />
-
         <VSpacer />
 
         <NavBarNotifications class="me-2" />
@@ -60,6 +57,5 @@ const { width: windowWidth } = useWindowSize()
     <template #footer>
       <Footer />
     </template>
-
   </VerticalNavLayout>
 </template>

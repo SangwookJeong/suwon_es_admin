@@ -9,7 +9,6 @@ import NavBarI18n from '@/layouts/components/NavBarI18n.vue'
 import NavBarNotifications from '@/layouts/components/NavBarNotifications.vue'
 import NavbarShortcuts from '@/layouts/components/NavbarShortcuts.vue'
 import NavbarThemeSwitcher from '@/layouts/components/NavbarThemeSwitcher.vue'
-import NavSearchBar from '@/layouts/components/NavSearchBar.vue'
 import UserProfile from '@/layouts/components/UserProfile.vue'
 import { HorizontalNavLayout } from '@layouts'
 import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
@@ -34,8 +33,6 @@ const { appRouteTransition } = useThemeConfig()
         </h1>
       </RouterLink>
       <VSpacer />
-
-      <NavSearchBar trigger-btn-class="ms-lg-n3" />
 
       <NavBarI18n />
       <NavbarThemeSwitcher />

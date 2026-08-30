@@ -103,6 +103,7 @@ const handleNavScroll = evt => {
             :is="config.app.iconRenderer || 'div'"
             v-show="isCollapsed && !hideTitleAndIcon"
             class="header-action"
+            title="사이드바 펼치기"
             v-bind="config.icons.verticalNavUnPinned"
             @click="isCollapsed = !isCollapsed"
           />
@@ -110,6 +111,7 @@ const handleNavScroll = evt => {
             :is="config.app.iconRenderer || 'div'"
             v-show="!isCollapsed && !hideTitleAndIcon"
             class="header-action"
+            title="사이드바 접기"
             v-bind="config.icons.verticalNavPinned"
             @click="isCollapsed = !isCollapsed"
           />
@@ -118,6 +120,7 @@ const handleNavScroll = evt => {
           <Component
             :is="config.app.iconRenderer || 'div'"
             class="header-action"
+            title="사이드바 닫기"
             v-bind="config.icons.close"
             @click="toggleIsOverlayNavActive(false)"
           />

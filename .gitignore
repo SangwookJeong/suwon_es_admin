@@ -30,3 +30,12 @@ dist-ssr
 
 # iconify dist files
 src/@iconify/icons-bundle.js
+
+# env files
+.env
+backend/.env
+deploy/.env
+
+serviceAccountKey.json
+
+.env.*.local

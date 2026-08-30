@@ -31,8 +31,14 @@
 
       // TEMPLATE: Check if we need to move this to master
       .app-logo {
-        flex-shrink: 0;
+        // ℹ️ 로고가 가로로 길면 헤더 액션(고정/축소 버튼) 자리를 잡아먹으므로,
+        //    남는 폭에 맞춰 로고가 줄어들도록 합니다.
+        min-inline-size: 0;
         transition: transform 0.25s ease-in-out;
+
+        img {
+          max-inline-size: 100%;
+        }
 
         @at-root {
           // Move logo a bit to align center with the icons in vertical nav mini variant

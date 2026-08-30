@@ -24,39 +24,12 @@ export default defineConfig({
     }),
     Pages({
       dirs: ['./src/pages'],
-
-      // ℹ️ We need three routes using single routes so we will ignore generating route for this SFC file
-      onRoutesGenerated: routes => [
-        // Email filter
-        {
-          path: '/apps/email/:filter',
-          name: 'apps-email-filter',
-          component: '/src/pages/apps/email/index.vue',
-          meta: {
-            navActiveLink: 'apps-email',
-            layoutWrapperClasses: 'layout-content-height-fixed',
-          },
-        },
-
-        // Email label
-        {
-          path: '/apps/email/label/:label',
-          name: 'apps-email-label',
-          component: '/src/pages/apps/email/index.vue',
-          meta: {
-            // contentClass: 'email-application',
-            navActiveLink: 'apps-email',
-            layoutWrapperClasses: 'layout-content-height-fixed',
-          },
-        },
-        ...routes,
-      ],
     }),
     Layouts({
       layoutsDirs: './src/layouts/',
     }),
     Components({
-      dirs: ['src/@core/components', 'src/views/demos'],
+      dirs: ['src/@core/components'],
       dts: true,
     }),
     AutoImport({
@@ -88,7 +61,6 @@ export default defineConfig({
       '@configured-variables': fileURLToPath(new URL('./src/styles/variables/_template.scss', import.meta.url)),
       '@axios': fileURLToPath(new URL('./src/plugins/axios', import.meta.url)),
       '@validators': fileURLToPath(new URL('./src/@core/utils/validators', import.meta.url)),
-      'apexcharts': fileURLToPath(new URL('node_modules/apexcharts-clevision', import.meta.url)),
     },
   },
   build: {

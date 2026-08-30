@@ -3,7 +3,6 @@ import { useGenerateImageVariant } from '@core/composable/useGenerateImageVarian
 import misc404 from '@images/pages/404.png'
 import miscMaskDark from '@images/pages/misc-mask-dark.png'
 import miscMaskLight from '@images/pages/misc-mask-light.png'
-import tree from '@images/pages/tree.png'
 
 const authThemeMask = useGenerateImageVariant(miscMaskLight, miscMaskDark)
 </script>
@@ -34,11 +33,6 @@ const authThemeMask = useGenerateImageVariant(miscMaskLight, miscMaskDark)
 
     <!-- 👉 Footer -->
     <VImg
-      :src="tree"
-      class="misc-footer-tree d-none d-md-block"
-    />
-
-    <VImg
       :src="authThemeMask"
       class="misc-footer-img d-none d-md-block"
     />
@@ -47,12 +41,6 @@ const authThemeMask = useGenerateImageVariant(miscMaskLight, miscMaskDark)
 
 <style lang="scss">
 @use "@core/scss/template/pages/misc.scss";
-
-.misc-footer-tree {
-  inline-size: 15.625rem;
-  inset-block-end: 3.5rem;
-  inset-inline-start: 0.375rem;
-}
 </style>
 
 <route lang="yaml">

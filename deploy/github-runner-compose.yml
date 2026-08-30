@@ -1,0 +1,31 @@
+# NAS에서 한 번만 띄워두는 GitHub Actions 셀프 호스티드 러너.
+# 앱 스택(docker-compose.yml)과 생명주기가 다르므로 별도 파일로 분리했습니다.
+#
+# 사용법 (저장소 루트에서 실행, 루트의 .env 파일을 그대로 읽습니다):
+#   1) GitHub 저장소 Settings > Developer settings에서 Personal Access Token(classic, repo 권한) 발급
+#   2) 루트 .env 파일에 아래 값 추가:
+#        GH_RUNNER_REPO_URL=https://github.com/<계정>/<저장소>
+#        GH_RUNNER_TOKEN=<발급받은 토큰>
+#   3) docker compose -f deploy/github-runner-compose.yml up -d
+#
+# 이후 GitHub 저장소 Settings > Actions > Runners에 "nas-runner"가 idle 상태로 나타나면 정상입니다.
+name: github-runner
+
+services:
+  github-runner:
+    image: myoung34/github-runner:latest
+    restart: unless-stopped
+    mem_limit: 300m
+    environment:
+      REPO_URL: ${GH_RUNNER_REPO_URL}
+      ACCESS_TOKEN: ${GH_RUNNER_TOKEN}
+      RUNNER_NAME: nas-runner
+      RUNNER_WORKDIR: /tmp/runner/work
+      LABELS: self-hosted,nas
+      DISABLE_AUTO_UPDATE: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - github-runner-work:/tmp/runner/work
+
+volumes:
+  github-runner-work:

@@ -1,0 +1,114 @@
+# NAS 배포용 풀스택 (MariaDB + 백엔드 API + 프론트엔드).
+#
+# 이미지는 GitHub Actions(ubuntu-latest)에서 빌드해 GHCR 에 올린 것을 pull 만 합니다.
+# NAS 에서 빌드하지 않으므로 Node 도, 빌드용 메모리도 필요하지 않습니다.
+#
+# ⚠️ bind mount 를 하나도 쓰지 않습니다. self-hosted 러너가 checkout 한 경로는
+#    러너 컨테이너 내부 경로여서 호스트 도커 데몬이 찾지 못하기 때문입니다.
+#    DB 스키마는 suwon-es-db 이미지에 구워져 있습니다(deploy/mariadb.Dockerfile).
+#
+# 사용법 (저장소 루트에서 실행 — 루트의 .env 를 읽습니다):
+#   docker compose -f deploy/docker-compose.nas.yml pull
+#   docker compose -f deploy/docker-compose.nas.yml up -d
+#
+# 목업 데모까지 함께 띄우려면:
+#   docker compose -f deploy/docker-compose.nas.yml --profile demo up -d
+#
+# 특정 커밋으로 롤백:
+#   WEB_IMAGE=ghcr.io/sangwookjeong/suwon-es-web:<커밋SHA> \
+#   API_IMAGE=ghcr.io/sangwookjeong/suwon-es-api:<커밋SHA> \
+#     docker compose -f deploy/docker-compose.nas.yml up -d
+
+# 다른 NAS 스택과 섞이지 않도록 프로젝트 이름을 고정합니다.
+name: suwon-es
+
+services:
+  # ── 데이터베이스 ────────────────────────────────────────────
+  # LAN 에도 포트를 열지 않습니다. 백엔드 컨테이너만 내부 네트워크로 접근합니다.
+  mariadb:
+    image: ${DB_IMAGE:-ghcr.io/sangwookjeong/suwon-es-db:main}
+    restart: unless-stopped
+    mem_limit: 400m
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?.env 에 MYSQL_ROOT_PASSWORD 를 설정하세요}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-suwon_es_admin}
+      MYSQL_USER: ${MYSQL_USER:-suwon_app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?.env 에 MYSQL_PASSWORD 를 설정하세요}
+    command:
+      - --innodb-buffer-pool-size=128M
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # ── 백엔드 API ─────────────────────────────────────────────
+  # 포트를 발행하지 않습니다. 브라우저는 프론트의 nginx /api 프록시를 통해서만 접근합니다.
+  # 덕분에 CORS 설정이 불필요하고 API 가 LAN 에 직접 노출되지 않습니다.
+  backend:
+    image: ${API_IMAGE:-ghcr.io/sangwookjeong/suwon-es-api:main}
+    restart: unless-stopped
+    mem_limit: 200m
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE:-suwon_es_admin}
+      DB_USER: ${MYSQL_USER:-suwon_app}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?.env 에 MYSQL_PASSWORD 를 설정하세요}
+      JWT_SECRET: ${JWT_SECRET:?.env 에 JWT_SECRET 를 설정하세요}
+      JWT_EXPIRES_IN: 7d
+      # same-origin 프록시를 쓰므로 CORS 허용 목록이 필요 없습니다.
+      # 직접 API 를 호출해야 하는 경우에만 .env 에 CORS_ORIGIN 을 넣으세요.
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  # ── 프론트엔드 (nginx, /api 를 backend 로 프록시) ─────────────
+  frontend:
+    image: ${WEB_IMAGE:-ghcr.io/sangwookjeong/suwon-es-web:main}
+    restart: unless-stopped
+    mem_limit: 64m
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ── 목업 데모 (백엔드/DB 없이 동작) ──────────────────────────
+  # profile 을 붙여서 평소 `up -d` 에는 포함되지 않게 했습니다.
+  #   docker compose ... --profile demo up -d frontend-test
+  frontend-test:
+    image: ${WEB_TEST_IMAGE:-ghcr.io/sangwookjeong/suwon-es-web:main-test}
+    profiles: ["demo"]
+    restart: unless-stopped
+    mem_limit: 64m
+    ports:
+      - "${FRONTEND_TEST_PORT:-8081}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  # 출석 데이터가 들어있는 유일한 영속 저장소입니다. 백업 대상은 이것뿐입니다.
+  mariadb_data:

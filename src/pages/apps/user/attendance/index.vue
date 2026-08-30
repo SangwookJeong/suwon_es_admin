@@ -1,18 +1,22 @@
 <script setup>
+import AttendanceStatsRow from '@/views/apps/user/AttendanceStatsRow.vue'
 import { useUserListStore } from '@/views/apps/user/useUserListStore'
 import { avatarText } from '@core/utils/formatters'
 
 const userListStore = useUserListStore()
 
+// 개인 출석 통계 팝업
+const isStatsDialogVisible = ref(false)
+const selectedRecord = ref(null)
+
+const openStatsDialog = record => {
+  selectedRecord.value = record
+  isStatsDialogVisible.value = true
+}
+
 // 로그인 사용자 권한
 const myTeacher = ref(null)
 const userData = JSON.parse(localStorage.getItem('userData') || '{}')
-
-if (userData.teacherId) {
-  userListStore.fetchUser(userData.teacherId).then(response => {
-    myTeacher.value = response.data
-  }).catch(() => {})
-}
 
 const canEdit = computed(() => {
   const t = myTeacher.value
@@ -31,6 +35,14 @@ const canEdit = computed(() => {
     return record => record.department === t.department
 
   return () => false
+})
+
+// 👉 교무팀은 전체 부서, 그 외(초등1~3반 등)는 본인 부서만 보임
+const visibleDept = computed(() => {
+  const t = myTeacher.value
+  if (!t || t.department === '교무팀') return null
+
+  return t.department
 })
 
 // 다음 일요일 계산
@@ -77,8 +89,21 @@ const getMonthLabel = dateStr => {
   return `${m}월`
 }
 
-const currentTab = ref('주일오전')
-const selectedDate = ref(getNextSunday())
+// 👉 현재 요일/시간 기준 기본 탭: 일요일 오전/오후, 목·금요일은 교사교육
+const getDefaultTab = () => {
+  const now = new Date()
+  const day = now.getDay()
+
+  if (day === 0) return now.getHours() < 12 ? '주일오전' : '주일오후'
+  if (day === 4 || day === 5) return '교사교육'
+
+  return '주일오전'
+}
+
+const getDefaultDate = tab => tab === '교사교육' ? getToday() : getNextSunday()
+
+const currentTab = ref(getDefaultTab())
+const selectedDate = ref(getDefaultDate(currentTab.value))
 const searchQuery = ref('')
 const loading = ref(false)
 const records = ref([])
@@ -104,6 +129,8 @@ const categoryMeta = computed(() => [
 ])
 
 const deptOrder = ['교무팀', '상담팀', '초등1반', '초등2반', '초등3반']
+
+const visibleDeptOrder = computed(() => visibleDept.value ? [visibleDept.value] : deptOrder)
 
 const deptColorMap = {
   '교무팀': 'primary',
@@ -151,19 +178,22 @@ const fetchAllCategoryStats = () => {
 
   fetches.forEach(({ type, date }) => {
     userListStore.fetchAttendance({ date, type }).then(response => {
-      const data = response.data
+      const scoped = visibleDept.value
+        ? response.data.records.filter(r => r.department === visibleDept.value)
+        : response.data.records
+
+      const total = scoped.length
+      const present = scoped.filter(r => r.present).length
 
       allCategoryStats.value[type] = {
-        total: data.total,
-        present: data.presentCount,
-        absent: data.absentCount,
-        rate: data.rate,
+        total,
+        present,
+        absent: total - present,
+        rate: total > 0 ? Math.round((present / total) * 100) : 0,
       }
     })
   })
 }
-
-fetchAllCategoryStats()
 
 // 탭 변경 시 날짜 자동 설정
 watch(currentTab, val => {
@@ -180,14 +210,11 @@ const fetchData = () => {
     date: selectedDate.value,
     type: currentTab.value,
   }).then(response => {
-    const data = response.data
-
-    records.value = data.records
-    totalCount.value = data.total
-    presentCount.value = data.presentCount
-    absentCount.value = data.absentCount
-    rate.value = data.rate
-    deptStats.value = data.deptStats
+    records.value = visibleDept.value
+      ? response.data.records.filter(r => r.department === visibleDept.value)
+      : response.data.records
+    totalCount.value = records.value.length
+    recalcStats()
   }).finally(() => {
     loading.value = false
   })
@@ -197,17 +224,59 @@ const fetchData = () => {
 watch([selectedDate, currentTab], () => {
   fetchData()
   fetchMonthlyDeptStats()
-}, { immediate: true })
+})
+
+// 로그인한 교사 정보가 확인된 뒤(본인 부서 범위가 정해진 뒤) 최초 데이터 조회
+const initialize = () => {
+  fetchAllCategoryStats()
+  fetchMonthlyDeptStats()
+  fetchData()
+}
+
+if (userData.teacherId) {
+  userListStore.fetchUser(userData.teacherId).then(response => {
+    myTeacher.value = response.data
+  }).catch(() => {}).finally(initialize)
+} else {
+  initialize()
+}
+
+// 다중 선택 필터 (부서/소속/B·S)
+const selectedFilterDept = ref([])
+const selectedFilterServiceGroup = ref([])
+const selectedFilterBs = ref([])
+
+const serviceGroupFilterOptions = ['봉사회', '어머니회', '청년회']
+
+const bsFilterOptions = [
+  { title: '형제 (B)', value: 'B' },
+  { title: '자매 (S)', value: 'S' },
+]
+
+const departmentFilterOptions = computed(() => visibleDeptOrder.value.map(dept => ({ title: dept, value: dept })))
 
 const filteredRecords = computed(() => {
-  if (!searchQuery.value) return records.value
+  let list = records.value
 
-  const q = searchQuery.value.toLowerCase()
+  if (selectedFilterDept.value.length)
+    list = list.filter(r => selectedFilterDept.value.includes(r.department))
 
-  return records.value.filter(r =>
-    r.fullName.toLowerCase().includes(q) ||
-    (r.contact && r.contact.includes(q)),
-  )
+  if (selectedFilterServiceGroup.value.length)
+    list = list.filter(r => selectedFilterServiceGroup.value.includes(r.serviceGroup))
+
+  if (selectedFilterBs.value.length)
+    list = list.filter(r => selectedFilterBs.value.includes(r.bs))
+
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+
+    list = list.filter(r =>
+      r.fullName.toLowerCase().includes(q) ||
+      (r.contact && r.contact.includes(q)),
+    )
+  }
+
+  return list
 })
 
 const toggleAttendance = id => {
@@ -234,7 +303,7 @@ const recalcStats = () => {
   rate.value = totalCount.value > 0 ? Math.round(presentCount.value / totalCount.value * 100) : 0
 
   // 부서별 재계산
-  deptOrder.forEach(dept => {
+  visibleDeptOrder.value.forEach(dept => {
     const deptUsers = records.value.filter(r => r.department === dept)
 
     deptStats.value[dept] = {
@@ -284,10 +353,19 @@ const formatDateDisplay = date => {
 }
 
 const resolveBsLabel = bs => {
-  if (bs === '형제') return '형제'
-  if (bs === '자매') return '자매'
+  if (bs === 'B') return '형제'
+  if (bs === 'S') return '자매'
 
   return bs || ''
+}
+
+// 👉 소속별 색상
+const resolveGroupVariant = group => {
+  if (group === '봉사회') return 'primary'
+  if (group === '어머니회') return 'info'
+  if (group === '청년회') return 'success'
+
+  return 'secondary'
 }
 </script>
 
@@ -412,7 +490,7 @@ const resolveBsLabel = bs => {
         </div>
         <div class="d-flex flex-wrap gap-x-8 gap-y-3">
           <div
-            v-for="dept in deptOrder"
+            v-for="dept in visibleDeptOrder"
             :key="dept"
             style="min-inline-size: 180px; flex: 1;"
           >
@@ -446,15 +524,88 @@ const resolveBsLabel = bs => {
 
           <VSpacer />
 
+          <VSelect
+            v-model="selectedFilterDept"
+            label="부서"
+            :items="departmentFilterOptions"
+            multiple
+            density="compact"
+            clearable
+            clear-icon="mdi-close"
+            hide-details
+            class="filter-select"
+          >
+            <template #selection="{ item, index }">
+              <span
+                v-if="index === 0"
+                class="text-truncate"
+              >{{ item.title }}</span>
+              <span
+                v-if="index === 1"
+                class="text-caption text-medium-emphasis ms-1"
+              >(+{{ selectedFilterDept.length - 1 }})</span>
+            </template>
+          </VSelect>
+
+          <VSelect
+            v-model="selectedFilterServiceGroup"
+            label="소속"
+            :items="serviceGroupFilterOptions"
+            multiple
+            density="compact"
+            clearable
+            clear-icon="mdi-close"
+            hide-details
+            class="filter-select"
+          >
+            <template #selection="{ item, index }">
+              <span
+                v-if="index === 0"
+                class="text-truncate"
+              >{{ item.title }}</span>
+              <span
+                v-if="index === 1"
+                class="text-caption text-medium-emphasis ms-1"
+              >(+{{ selectedFilterServiceGroup.length - 1 }})</span>
+            </template>
+          </VSelect>
+
+          <VSelect
+            v-model="selectedFilterBs"
+            label="형제/자매"
+            :items="bsFilterOptions"
+            multiple
+            density="compact"
+            clearable
+            clear-icon="mdi-close"
+            hide-details
+            class="filter-select"
+          >
+            <template #selection="{ item, index }">
+              <span
+                v-if="index === 0"
+                class="text-truncate"
+              >{{ item.title }}</span>
+              <span
+                v-if="index === 1"
+                class="text-caption text-medium-emphasis ms-1"
+              >(+{{ selectedFilterBs.length - 1 }})</span>
+            </template>
+          </VSelect>
+        </div>
+
+        <div class="d-flex align-center flex-wrap gap-4 mb-4">
           <VTextField
             v-model="searchQuery"
             placeholder="이름, 연락처 검색"
             prepend-inner-icon="mdi-magnify"
             density="compact"
-            style="max-inline-size: 220px;"
+            style="min-inline-size: 200px; max-inline-size: 220px;"
             hide-details
             clearable
           />
+
+          <VSpacer />
 
           <VBtn
             color="success"
@@ -522,6 +673,12 @@ const resolveBsLabel = bs => {
                 scope="col"
                 class="text-center"
               >
+                소속
+              </th>
+              <th
+                scope="col"
+                class="text-center"
+              >
                 연락처
               </th>
             </tr>
@@ -530,8 +687,7 @@ const resolveBsLabel = bs => {
             <tr
               v-for="record in filteredRecords"
               :key="record.id"
-              :class="canEdit(record) ? 'cursor-pointer' : 'text-disabled'"
-              @click="toggleAttendance(record.id)"
+              :class="{ 'text-disabled': !canEdit(record) }"
             >
               <td @click.stop>
                 <VCheckbox
@@ -542,7 +698,10 @@ const resolveBsLabel = bs => {
                 />
               </td>
               <td>
-                <div class="d-flex align-center">
+                <div
+                  class="d-flex align-center cursor-pointer"
+                  @click="openStatsDialog(record)"
+                >
                   <VAvatar
                     :color="deptColorMap[record.department] || 'secondary'"
                     variant="tonal"
@@ -560,7 +719,7 @@ const resolveBsLabel = bs => {
                       {{ record.fullName }}
                     </span>
                     <span class="text-xs text-medium-emphasis">
-                      {{ resolveBsLabel(record.bs) }}<span v-if="record.bs && record.serviceGroup"> · </span>{{ record.serviceGroup }}
+                      {{ resolveBsLabel(record.bs) }}
                     </span>
                   </div>
                 </div>
@@ -573,6 +732,15 @@ const resolveBsLabel = bs => {
                   {{ record.department }}
                 </VChip>
               </td>
+              <td class="text-center">
+                <VChip
+                  :color="resolveGroupVariant(record.serviceGroup)"
+                  size="small"
+                  variant="tonal"
+                >
+                  {{ record.serviceGroup }}
+                </VChip>
+              </td>
               <td class="text-center text-medium-emphasis">
                 {{ record.contact }}
               </td>
@@ -581,7 +749,7 @@ const resolveBsLabel = bs => {
           <tfoot v-show="!filteredRecords.length">
             <tr>
               <td
-                colspan="4"
+                colspan="5"
                 class="text-center"
               >
                 검색 결과가 없습니다.
@@ -602,6 +770,56 @@ const resolveBsLabel = bs => {
     >
       {{ snackbarMessage }}
     </VSnackbar>
+
+    <!-- 개인 출석 통계 팝업 -->
+    <VDialog
+      v-model="isStatsDialogVisible"
+      max-width="800"
+    >
+      <VCard v-if="selectedRecord">
+        <VCardText class="d-flex align-center gap-3 pb-0">
+          <VAvatar
+            :color="deptColorMap[selectedRecord.department] || 'secondary'"
+            variant="tonal"
+            size="42"
+          >
+            <VImg
+              v-if="selectedRecord.avatar"
+              :src="selectedRecord.avatar"
+            />
+            <span v-else>{{ avatarText(selectedRecord.fullName) }}</span>
+          </VAvatar>
+          <div>
+            <div class="d-flex align-center gap-2">
+              <span class="text-h6">{{ selectedRecord.fullName }}</span>
+              <VChip
+                :color="deptColorMap[selectedRecord.department] || 'secondary'"
+                size="small"
+              >
+                {{ selectedRecord.department }}
+              </VChip>
+            </div>
+            <span class="text-xs text-medium-emphasis">
+              {{ resolveBsLabel(selectedRecord.bs) }}<span v-if="selectedRecord.serviceGroup"> · </span>{{ selectedRecord.serviceGroup }}
+            </span>
+          </div>
+          <VSpacer />
+          <VBtn
+            icon
+            variant="text"
+            color="default"
+            size="small"
+            @click="isStatsDialogVisible = false"
+          >
+            <VIcon icon="mdi-close" />
+          </VBtn>
+        </VCardText>
+        <VCardText>
+          <VDivider class="mb-4" />
+          <AttendanceStatsRow :user-id="selectedRecord.id" />
+        </VCardText>
+      </VCard>
+    </VDialog>
   </section>
 </template>
 
@@ -623,6 +841,24 @@ const resolveBsLabel = bs => {
     &:hover {
       background-color: rgba(var(--v-theme-on-surface), 0.04);
     }
+  }
+}
+
+.filter-select {
+  inline-size: 150px;
+  min-inline-size: 120px;
+
+  .v-field__input {
+    flex-wrap: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .v-select__selection {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 </style>
