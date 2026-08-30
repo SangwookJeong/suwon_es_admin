@@ -172,6 +172,28 @@ docker compose -f deploy/docker-compose.nas.yml exec backend npm run seed
 
 교사 53명 · 학생 179명 · 계정 2개가 들어갑니다. 이미 데이터가 있으면 건너뛰므로 여러 번 실행해도 안전합니다.
 
+호스트에 compose 가 없으면 `docker exec` 로도 됩니다.
+
+```bash
+docker exec suwon-es-backend-1 npm run seed
+```
+
+제대로 들어갔는지 확인합니다.
+
+```bash
+# 테이블 5개: teachers, service_history, attendance, accounts, students
+docker exec suwon-es-mariadb-1 \
+  sh -c 'mariadb -uroot -p"$MYSQL_ROOT_PASSWORD" -e "SHOW TABLES" suwon_es_admin'
+
+# 교사 53 / 학생 179 / 계정 2 가 나와야 정상
+docker exec suwon-es-mariadb-1 sh -c 'mariadb -uroot -p"$MYSQL_ROOT_PASSWORD" -e \
+  "SELECT (SELECT COUNT(*) FROM teachers) 교사, (SELECT COUNT(*) FROM students) 학생, (SELECT COUNT(*) FROM accounts) 계정" suwon_es_admin'
+```
+
+> compose 가 넣어주는 변수 이름은 `MYSQL_ROOT_PASSWORD` 입니다.
+> mariadb 이미지가 `MARIADB_ROOT_PASSWORD` 도 인식하긴 하지만, 설정하지 않은 쪽은
+> 컨테이너에 존재하지 않아 빈 값이 되고 `using password: NO` 로 거부당합니다.
+
 ## 9. 접속 확인
 
 브라우저에서 `http://<NAS_IP>:8080`
@@ -209,7 +231,7 @@ $C logs -f backend
 
 ```bash
 docker compose -f deploy/docker-compose.nas.yml exec mariadb \
-  sh -c 'exec mariadb-dump -uroot -p"$MARIADB_ROOT_PASSWORD" --single-transaction --routines suwon_es_admin' \
+  sh -c 'exec mariadb-dump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines suwon_es_admin' \
   > /volume1/backup/suwon_es_$(date +%Y%m%d).sql
 ```
 
@@ -219,7 +241,7 @@ DSM **작업 스케줄러**에 매일 새벽으로 걸어두는 것을 권합니
 
 ```bash
 docker compose -f deploy/docker-compose.nas.yml exec -T mariadb \
-  sh -c 'exec mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" suwon_es_admin' \
+  sh -c 'exec mariadb -uroot -p"$MYSQL_ROOT_PASSWORD" suwon_es_admin' \
   < /volume1/backup/suwon_es_20260830.sql
 ```
 
@@ -241,7 +263,7 @@ API_IMAGE=ghcr.io/sangwookjeong/suwon-es-api:<커밋SHA> \
 
 ```bash
 docker compose -f deploy/docker-compose.nas.yml exec -T mariadb \
-  sh -c 'exec mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" suwon_es_admin' \
+  sh -c 'exec mariadb -uroot -p"$MYSQL_ROOT_PASSWORD" suwon_es_admin' \
   < backend/sql/001_schema.sql
 ```
 
