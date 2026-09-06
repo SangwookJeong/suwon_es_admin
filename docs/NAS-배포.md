@@ -283,6 +283,92 @@ docker compose -f deploy/docker-compose.nas.yml exec -T mariadb \
 | 화면이 옛날 그대로 | `index.html`은 `no-store`라 보통 하드 리프레시(⌘⇧R)면 됩니다 |
 | DB만 초기화하고 싶음 | `$C down && docker volume rm suwon-es_mariadb_data && $C up -d` — **데이터가 전부 사라집니다** |
 
+---
+
+# 외부 공개 (Tailscale Funnel)
+
+## 왜 포트포워딩이 아닌가
+
+이 망은 NAT 가 3겹입니다.
+
+```
+인터넷 → [통신사/건물 최상위] → 192.168.30.1 → 192.168.222.1 → 192.20.50.1 → NAS
+```
+
+우리 공유기의 WAN 쪽이 이미 사설 IP(`192.168.222.x`)라, 밖에서 오는 요청은 위층에서 막힙니다.
+우리 공유기에만 포워딩을 걸어도 요청이 내려오지 못합니다.
+`traceroute -n 8.8.8.8` 의 2~3번째 홉이 사설 IP 면 같은 상황입니다.
+
+그래서 **방향을 뒤집습니다.** NAS 가 밖으로 나가 연결을 유지하고, 그 통로로 서비스합니다.
+QuickConnect 가 되는 것과 같은 원리입니다 (다만 QuickConnect 는 DSM 과 Synology 패키지만
+중계해서 우리 컨테이너에는 쓸 수 없습니다).
+
+## 1. Tailscale 계정 준비
+
+<https://login.tailscale.com/start> 에서 가입 (Google/GitHub 계정으로 가능, 무료).
+
+가입 후 관리 콘솔에서 **세 가지**를 해야 합니다.
+
+**a) MagicDNS + HTTPS 인증서 켜기**
+**DNS** 탭 → `MagicDNS` 활성화 → 아래 `HTTPS Certificates` 도 **Enable**
+
+**b) Funnel 권한 열기**
+**Access Controls** 탭에서 정책 파일에 `nodeAttrs` 를 추가합니다.
+
+```json
+"nodeAttrs": [
+  { "target": ["autogroup:member"], "attr": ["funnel"] }
+]
+```
+
+**c) 인증 키 발급**
+**Settings → Keys → Generate auth key**
+- Reusable: 켬
+- Ephemeral: **끔** (꺼야 재기동 시 노드가 유지됩니다)
+- 생성된 `tskey-auth-...` 를 복사
+
+## 2. GitHub 시크릿에 등록
+
+저장소 → **Settings → Secrets and variables → Actions → New repository secret**
+
+| 이름 | 값 |
+|---|---|
+| `TS_AUTHKEY` | 위에서 복사한 `tskey-auth-...` |
+
+## 3. 배포
+
+main 에 push 하면 터널 컨테이너까지 함께 올라갑니다.
+
+## 4. 공개 주소 확인
+
+```bash
+docker exec suwon-es-tailscale-1 tailscale status
+```
+
+첫 줄에 `suwon-es.<tailnet>.ts.net` 형태의 이름이 보입니다. 그게 공개 주소입니다.
+
+```bash
+docker exec suwon-es-tailscale-1 tailscale funnel status
+```
+
+`https://suwon-es.<tailnet>.ts.net (Funnel on)` 과 `|-- / proxy http://frontend:80` 이 보이면 정상입니다.
+
+이제 **어느 망에서든** 그 주소로 접속됩니다. 인증서는 자동이라 경고가 뜨지 않습니다.
+
+## 문제가 생기면
+
+| 증상 | 조치 |
+|---|---|
+| `tailscale status` 가 `Logged out` | `TS_AUTHKEY` 미등록/만료. 새 키 발급 후 시크릿 갱신, 컨테이너 재생성 |
+| `Funnel is not enabled` | 1-b 의 `nodeAttrs` 정책이 빠졌습니다 |
+| 인증서 오류 | 1-a 의 HTTPS Certificates 가 꺼져 있습니다 |
+| 502 / 연결 안 됨 | `docker exec suwon-es-tailscale-1 wget -qO- http://frontend:80/healthz` 로 내부 도달 확인 |
+
+> **터널은 앱을 인터넷에 그대로 공개합니다.** 앱의 로그인 화면이 유일한 방어선입니다.
+> 시드 계정 비밀번호를 반드시 바꾸고 안 쓰는 계정은 지우세요.
+
+---
+
 ## 아직 안 된 것
 
 - **학생 출석**: 화면은 있지만 교사 출결 API(`/apps/attendance`)를 그대로 쓰고 있어 교사 명단이 나옵니다. 학생 전용 출석 테이블·API가 필요합니다.

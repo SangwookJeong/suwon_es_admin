@@ -92,6 +92,46 @@ services:
       retries: 3
       start_period: 5s
 
+  # ── 외부 공개 터널 (Tailscale Funnel) ───────────────────────
+  # 이 망은 NAT 가 3겹(우리 공유기 → 192.168.222.1 → 192.168.30.1 → 통신사)이라
+  # 포트포워딩으로는 외부에서 들어올 수 없습니다. 그래서 방향을 뒤집어,
+  # NAS 가 밖으로 나가 연결을 유지하는 터널로 공개합니다.
+  # 인바운드 포트를 하나도 열지 않으므로 공유기 설정이 전혀 필요 없습니다.
+  #
+  # 공개 주소는 https://<hostname>.<tailnet>.ts.net 형태이고 인증서는 자동입니다.
+  # frontend 로만 프록시하므로 backend/mariadb 는 여전히 외부에 노출되지 않습니다.
+  tailscale:
+    image: ${TS_IMAGE:-ghcr.io/sangwookjeong/suwon-es-ts:main}
+    restart: unless-stopped
+    mem_limit: 128m
+    depends_on:
+      - frontend
+
+    # 공개 주소의 앞부분이 됩니다: suwon-es.<tailnet>.ts.net
+    hostname: suwon-es
+    environment:
+      # 최초 1회만 필요합니다. 인증되고 나면 상태 볼륨에 남아 키가 만료돼도 계속 동작합니다.
+      # 그래서 필수(:?)가 아닌 선택(:-)으로 둡니다 — 키 만료가 배포를 막으면 안 되니까요.
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_STATE_DIR: /var/lib/tailscale
+
+      # /dev/net/tun 없이 동작합니다. Synology 에서 커널 모듈을 건드리지 않으려는 선택입니다.
+      TS_USERSPACE: "true"
+
+      # ⚠️ true 로 두면 tailscale DNS 가 우선해 'frontend' 컨테이너 이름을 못 찾습니다.
+      TS_ACCEPT_DNS: "false"
+
+      # 이미지에 구워 넣은 serve 설정 (deploy/tailscale/serve.json)
+      TS_SERVE_CONFIG: /config/serve.json
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+
+    # ℹ️ healthcheck 를 일부러 두지 않았습니다.
+    #    `tailscale status` 는 인증 전에는 실패하는데, 그러면 TS_AUTHKEY 를 넣기 전
+    #    배포가 통째로 실패로 찍혀서 앱 갱신까지 막힙니다.
+    #    터널 상태는 따로 확인하세요:
+    #      docker exec suwon-es-tailscale-1 tailscale status
+
   # ── 목업 데모 (백엔드/DB 없이 동작) ──────────────────────────
   # profile 을 붙여서 평소 `up -d` 에는 포함되지 않게 했습니다.
   #   docker compose ... --profile demo up -d frontend-test
@@ -112,3 +152,6 @@ services:
 volumes:
   # 출석 데이터가 들어있는 유일한 영속 저장소입니다. 백업 대상은 이것뿐입니다.
   mariadb_data:
+
+  # tailscale 노드 인증 정보. 지워지면 TS_AUTHKEY 로 다시 인증해야 합니다.
+  tailscale_state:
